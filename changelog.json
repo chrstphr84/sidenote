@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.6.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Drawing tools: a floating palette to draw rectangles, ellipses, lines, arrows, and freehand strokes over the page — each drawing becomes a note you can comment on.",
+          "Pick an ink color for drawings; the last color is remembered.",
+          "Drawings anchor to the element beneath them (or to the page) so they move with the content and come back on reload.",
+          "Open the palette from a note panel's Draw button or the toolbar's “Draw on page”; press Escape to cancel a stroke or leave drawing mode."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.5.0",
     "sections": [
       {

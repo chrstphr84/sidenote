@@ -29,13 +29,17 @@ const DEFAULT_SETTINGS = {
   shortcutEnabled: true, // the keyboard command (rebindable at chrome://extensions/shortcuts)
   // The speech-bubble margin tab (FAB).
   showTab: true, // show the open/close tab on the page edge
-  fabPosition: 0.5 // vertical position as a fraction of the viewport (draggable)
+  fabPosition: 0.5, // vertical position as a fraction of the viewport (draggable)
+  drawColor: "#f24822" // last-used ink color for the drawing tools
 };
 
 const ACCENT = "#1a73e8";
 
 // Highlighter presets offered per note (yellow, blue, green, red, orange, purple).
 const HIGHLIGHT_PALETTE = ["#ffe066", "#a5d8ff", "#b2f2bb", "#ffc9c9", "#ffd8a8", "#eebefa"];
+
+// Ink presets for the drawing tools (red, blue, green, amber, ink).
+const DRAW_PALETTE = ["#f24822", "#1a73e8", "#12b886", "#f59f00", "#212529"];
 
 /* ------------------------------------------------------------- Settings */
 function normalizeSettings(raw) {
@@ -55,6 +59,7 @@ function normalizeSettings(raw) {
     if (typeof raw.showTab === "boolean") s.showTab = raw.showTab;
     const fp = Number(raw.fabPosition);
     if (Number.isFinite(fp)) s.fabPosition = Math.min(0.95, Math.max(0.05, fp));
+    if (/^#([A-Fa-f0-9]{6})$/.test(String(raw.drawColor || ""))) s.drawColor = raw.drawColor;
   }
   // Keep at least one primary add-method enabled.
   if (!s.addSelectionButton && !s.addContextMenu) s.addSelectionButton = true;

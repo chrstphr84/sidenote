@@ -24,6 +24,7 @@ const els = {
   sidesRow: document.getElementById("pp-sides-row"),
   sides: document.getElementById("pp-sides"),
   open: document.getElementById("pp-open"),
+  draw: document.getElementById("pp-draw"),
   all: document.getElementById("pp-all"),
   settings: document.getElementById("pp-settings"),
   toast: document.getElementById("toast")
@@ -76,6 +77,7 @@ function render() {
     els.pageSub.textContent = "SideNote can't run on this page";
     els.sidesRow.classList.add("disabled");
     els.open.disabled = true;
+    els.draw.disabled = true;
     return;
   }
 
@@ -93,6 +95,7 @@ function render() {
   });
   els.sidesRow.classList.toggle("disabled", !settings.masterEnabled);
   els.open.disabled = !enabled;
+  els.draw.disabled = !settings.masterEnabled;
 }
 
 function persistPages() {
@@ -139,6 +142,16 @@ els.open.addEventListener("click", async () => {
   if (!tab) return;
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "sn-open" });
+    window.close();
+  } catch (_) {
+    toast("Reload the page, then try again.");
+  }
+});
+
+els.draw.addEventListener("click", async () => {
+  if (!tab) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: "sn-draw" });
     window.close();
   } catch (_) {
     toast("Reload the page, then try again.");

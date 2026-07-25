@@ -49,9 +49,10 @@ Two supporting refactors ride along:
 - Reposition the speech-bubble tab vertically; option to hide it (relies on Phase 1's shortcut/context-menu as an alternate open).
 - Custom highlight color / expanded palette polish.
 
-### Phase 3 — Drawing tools
-- Tool palette: highlight / select / draw (rectangle, ellipse, line, arrow, freehand).
-- Built on the Phase 0 overlay + `region` anchor.
+### Phase 3 — Drawing tools — DONE (v0.6.0)
+- Tool palette: select / draw (rectangle, ellipse, line, arrow, freehand) with ink colors.
+- Built on the Phase 0 overlay + `region` anchor; drawings anchor to the element beneath
+  them (or the page) and open a note card for a comment.
 
 ### Phase 4 — Export
 - Markdown / CSV / plaintext (pure client-side transforms over the note model).
@@ -85,7 +86,7 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Resolved notes strikethrough + delete from margin | 0 | Partial (resolve + delete exist; restyle pending) |
 | Error handling: page changed | X-cutting | Baseline (orphan flagging) |
 | Link directly to elements | 1 | Done (v0.4.0) |
-| Highlight/select/draw palette | 3 | New (needs overlay) |
+| Highlight/select/draw palette | 3 | Done (v0.6.0) |
 | Contextual menu add | 1 | Done (v0.4.0) |
 | User keyboard shortcut | 1 | Done (v0.4.0) |
 | Move / hide the margin tab | 2 | Done (v0.5.0) |

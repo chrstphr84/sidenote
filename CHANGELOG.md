@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.6.0]
+
+### Added
+- Drawing tools: a floating palette to draw rectangles, ellipses, lines, arrows, and freehand strokes over the page — each drawing becomes a note you can comment on.
+- Pick an ink color for drawings; the last color is remembered.
+- Drawings anchor to the element beneath them (or to the page) so they move with the content and come back on reload.
+- Open the palette from a note panel's Draw button or the toolbar's “Draw on page”; press Escape to cancel a stroke or leave drawing mode.
+
 ## [0.5.0]
 
 ### Added
@@ -62,6 +70,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.6.0]: #060
 [0.5.0]: #050
 [0.4.0]: #040
 [0.3.0]: #030

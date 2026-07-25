@@ -32,6 +32,11 @@
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
+  // Drawing (Phase 3)
+  let paletteOpen = false; // the drawing tool palette is shown
+  let drawTool = null; // "rect" | "ellipse" | "line" | "arrow" | "freehand" | null
+  let drawing = null; // in-progress stroke: { kind, points: [{x,y}] } in viewport coords
+
   let hostEl = null;
   let shadow = null;
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -352,7 +357,12 @@
         svg.appendChild(box);
         svg.appendChild(pin);
       } else if (comment.anchor.type === "region") {
-        const origin = el ? el.getBoundingClientRect() : { left: 0, top: 0 };
+        // Element-relative: track the element's live rect. Page-relative: points
+        // are page coords, so shift by the negative scroll to place them on the
+        // fixed overlay (and they follow the page as it scrolls).
+        const origin = el
+          ? el.getBoundingClientRect()
+          : { left: -window.scrollX, top: -window.scrollY };
         (comment.anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin));
       }
     });
@@ -394,6 +404,153 @@
       overlayRaf = 0;
       drawOverlay();
     });
+  }
+
+  /* ---------------------------------------------------- Drawing tools */
+  const DRAW_TOOLS = [
+    { tool: "select", glyph: "▱", title: "Select (stop drawing)" },
+    { tool: "rect", glyph: "▭", title: "Rectangle" },
+    { tool: "ellipse", glyph: "◯", title: "Ellipse" },
+    { tool: "arrow", glyph: "↗", title: "Arrow" },
+    { tool: "line", glyph: "╱", title: "Line" },
+    { tool: "freehand", glyph: "✎", title: "Freehand" }
+  ];
+
+  function drawColor() {
+    return settings.drawColor || DRAW_PALETTE[0];
+  }
+
+  function renderPalette() {
+    if (!shadow) return;
+    const bar = shadow.getElementById("sn-palette");
+    bar.hidden = !paletteOpen;
+    if (!paletteOpen) return;
+    bar.style.top = `calc(${topInset}px + 12px)`;
+    const tools = DRAW_TOOLS.map(
+      (t) =>
+        `<button class="sn-tool${(drawTool || "select") === t.tool ? " sel" : ""}" data-tool="${t.tool}" title="${t.title}">${t.glyph}</button>`
+    ).join("");
+    const swatches = DRAW_PALETTE.map(
+      (c) =>
+        `<button class="sn-ink${c.toLowerCase() === drawColor().toLowerCase() ? " sel" : ""}" style="background:${c}" data-drawcolor="${c}" title="${c}"></button>`
+    ).join("");
+    bar.innerHTML =
+      `<div class="sn-tools">${tools}</div>` +
+      `<div class="sn-inks">${swatches}</div>` +
+      `<button class="sn-tool sn-palette-close" data-tool="__close" title="Close">✕</button>`;
+  }
+
+  function openPalette() {
+    paletteOpen = true;
+    setTool(null);
+    renderPalette();
+  }
+
+  function closePalette() {
+    paletteOpen = false;
+    setTool(null);
+    renderPalette();
+  }
+
+  function setTool(tool) {
+    drawTool = DRAW_TOOLS.some((t) => t.tool === tool) && tool !== "select" ? tool : null;
+    if (shadow) {
+      shadow.getElementById("sn-draw-capture").hidden = !drawTool;
+    }
+    renderPalette();
+  }
+
+  function onPaletteClick(e) {
+    const btn = e.target.closest("[data-tool], [data-drawcolor]");
+    if (!btn) return;
+    if (btn.dataset.drawcolor) {
+      settings.drawColor = btn.dataset.drawcolor;
+      setSettings(settings);
+      renderPalette();
+      return;
+    }
+    const tool = btn.dataset.tool;
+    if (tool === "__close") closePalette();
+    else setTool(tool);
+  }
+
+  // Which element a page-point should anchor to (null → anchor to the page).
+  function elementUnderForDrawing(x, y) {
+    const capture = shadow && shadow.getElementById("sn-draw-capture");
+    if (capture) capture.style.pointerEvents = "none";
+    let el = null;
+    try {
+      el = document.elementFromPoint(x, y);
+    } catch (_) {
+      el = null;
+    }
+    if (capture) capture.style.pointerEvents = "";
+    if (!el || el === document.body || el === document.documentElement) return null;
+    if (el.id === HOST_ID || (el.closest && el.closest(`#${HOST_ID}`))) return null;
+    return el;
+  }
+
+  function clearPreview() {
+    const svg = overlayEl();
+    if (svg) svg.querySelectorAll('[data-sidenote-id="__preview__"]').forEach((n) => n.remove());
+  }
+
+  function drawPreview() {
+    const svg = overlayEl();
+    if (!svg || !drawing) return;
+    clearPreview();
+    drawShape(svg, { id: "__preview__" }, { kind: drawing.kind, points: drawing.points, color: drawColor(), width: 3 }, { left: 0, top: 0 });
+  }
+
+  function onDrawStart(e) {
+    if (!drawTool) return;
+    e.preventDefault();
+    drawing = { kind: drawTool, points: [{ x: e.clientX, y: e.clientY }] };
+    if (drawTool !== "freehand") drawing.points.push({ x: e.clientX, y: e.clientY });
+    document.addEventListener("mousemove", onDrawMove, true);
+    document.addEventListener("mouseup", onDrawEnd, true);
+  }
+
+  function onDrawMove(e) {
+    if (!drawing) return;
+    if (drawing.kind === "freehand") drawing.points.push({ x: e.clientX, y: e.clientY });
+    else drawing.points[1] = { x: e.clientX, y: e.clientY };
+    drawPreview();
+  }
+
+  function onDrawEnd() {
+    document.removeEventListener("mousemove", onDrawMove, true);
+    document.removeEventListener("mouseup", onDrawEnd, true);
+    const d = drawing;
+    drawing = null;
+    clearPreview();
+    if (!d) return;
+
+    // Ignore an accidental click (no real drag / too few points).
+    if (d.kind === "freehand") {
+      if (d.points.length < 3) return;
+    } else {
+      const [a, b] = d.points;
+      if (!b || (Math.abs(a.x - b.x) < 4 && Math.abs(a.y - b.y) < 4)) return;
+    }
+
+    const anchor = finalizeDrawing(d);
+    // Leave the capture layer so the user can type the note; reselect to draw more.
+    setTool(null);
+    createNote(anchor);
+  }
+
+  function finalizeDrawing(d) {
+    const start = d.points[0];
+    const el = elementUnderForDrawing(start.x, start.y);
+    const shape = { kind: d.kind, color: drawColor(), width: 3 };
+    if (el) {
+      const r = el.getBoundingClientRect();
+      shape.points = d.points.map((p) => ({ x: Math.round(p.x - r.left), y: Math.round(p.y - r.top) }));
+      return { type: "region", relativeTo: "element", target: buildTarget(el), shapes: [shape] };
+    }
+    shape.points = d.points.map((p) => ({ x: Math.round(p.x + window.scrollX), y: Math.round(p.y + window.scrollY) }));
+    return { type: "region", relativeTo: "page", target: {}, shapes: [shape] };
   }
 
   /* ------------------------------------------------- Render dispatcher */
@@ -487,11 +644,18 @@
     hostEl.dataset.theme = currentTheme();
     shadow = hostEl.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${SIDEBAR_CSS}</style>
+      <div id="sn-draw-capture" class="sn-draw-capture" hidden></div>
       <svg id="sn-overlay" class="sn-overlay"></svg>
+      <div id="sn-palette" class="sn-palette-bar" hidden></div>
       <div id="sn-chrome"></div>
       <button id="sn-add" class="sn-add" type="button" hidden>💬 Add note</button>
       <div id="sn-toast" class="sn-toast" hidden></div>`;
     (document.documentElement || document.body).appendChild(hostEl);
+
+    const palette = shadow.getElementById("sn-palette");
+    palette.addEventListener("click", onPaletteClick);
+    const capture = shadow.getElementById("sn-draw-capture");
+    capture.addEventListener("mousedown", onDrawStart);
 
     shadow.getElementById("sn-add").addEventListener("mousedown", (e) => e.preventDefault());
     shadow.getElementById("sn-add").addEventListener("click", onAddClick);
@@ -758,6 +922,7 @@
         </header>
         <div class="sn-cards">${cards}</div>
         <footer class="sn-foot">
+          <button class="sn-link" data-action="draw">Draw</button>
           <button class="sn-link" data-action="all-notes">All notes</button>
           <button class="sn-link" data-action="settings">Settings</button>
         </footer>
@@ -832,6 +997,8 @@
     });
     chromeEl.innerHTML = html;
     applyPush();
+    renderPalette();
+    shadow.getElementById("sn-draw-capture").hidden = !drawTool;
 
     if (editingId) {
       const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(editingId)}"]`);
@@ -901,6 +1068,10 @@
         break;
       case "delete":
         deleteComment(id);
+        break;
+      case "draw":
+        if (paletteOpen) closePalette();
+        else openPalette();
         break;
       case "all-notes":
         chrome.runtime.sendMessage({ type: "sn-open-tab", page: "pages.html" });
@@ -1369,8 +1540,36 @@
       requestCreate(() => anchorFromSelection());
     } else if (msg.type === "sn-add-element") {
       requestCreate(() => anchorFromElement(lastCtxEl));
+    } else if (msg.type === "sn-draw") {
+      if (!active) {
+        pendingAction = () => openPalette();
+        mutatePage((e) => {
+          e.enabled = true;
+        });
+      } else {
+        openPalette();
+      }
     }
   });
+
+  // Escape cancels an in-progress stroke, then the drawing palette.
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Escape" || !active) return;
+      if (drawing) {
+        document.removeEventListener("mousemove", onDrawMove, true);
+        document.removeEventListener("mouseup", onDrawEnd, true);
+        drawing = null;
+        clearPreview();
+      } else if (drawTool) {
+        setTool(null);
+      } else if (paletteOpen) {
+        closePalette();
+      }
+    },
+    true
+  );
 
   // Single-page-app navigation: the URL can change without a reload, so re-key
   // to the new page's notes when it does.
@@ -1435,6 +1634,35 @@
       --border-strong:#5f6368; --accent:#8ab4f8; --accent-contrast:#202124;
       --danger:#f28b82; --shadow:0 1px 3px rgba(0,0,0,.5),0 4px 12px rgba(0,0,0,.4);
     }
+
+    /* Drawing capture layer + tool palette */
+    .sn-draw-capture {
+      position: fixed; inset: 0; z-index: 2147483646; cursor: crosshair;
+      background: transparent;
+    }
+    .sn-palette-bar {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      z-index: 2147483647; display: flex; align-items: center; gap: 10px;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 999px;
+      box-shadow: var(--shadow); padding: 6px 10px;
+    }
+    .sn-palette-bar .sn-tools, .sn-palette-bar .sn-inks { display: flex; align-items: center; gap: 4px; }
+    .sn-palette-bar .sn-inks { padding-left: 8px; border-left: 1px solid var(--border); }
+    .sn-tool {
+      width: 30px; height: 30px; border-radius: 8px; border: 1px solid transparent;
+      background: transparent; color: var(--text); cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .sn-tool:hover { background: var(--surface-2); }
+    .sn-tool.sel { background: var(--accent); color: var(--accent-contrast); }
+    .sn-palette-close { color: var(--text-secondary); }
+    .sn-ink {
+      width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+      cursor: pointer; padding: 0;
+    }
+    .sn-ink:hover { transform: scale(1.12); }
+    .sn-ink.sel { box-shadow: 0 0 0 2px var(--accent); }
 
     .sn-panel {
       position: fixed; top: var(--sn-top-inset, 0px); bottom: 0; width: 320px;
