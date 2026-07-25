@@ -208,10 +208,6 @@
     return spans;
   }
 
-  function spansFor(id) {
-    return Array.from(document.querySelectorAll(`.__sidenote_hl[data-sidenote-id="${cssEscape(id)}"]`));
-  }
-
   function unwrap(span) {
     const parent = span.parentNode;
     if (!parent) return;
@@ -229,21 +225,206 @@
     return String(value).replace(/["\\]/g, "\\$&");
   }
 
-  // Re-anchor and re-wrap every comment (and the draft). Returns the ids that
-  // could not be located so the UI can flag them.
-  function applyHighlights() {
+  /* --------------------------------------------------- Element anchors */
+  // Build a resilient locator for an element (Phase 1 will create these; the
+  // renderer below already consumes them so element notes round-trip now).
+  function xPathOf(el) {
+    if (!el || el.nodeType !== 1) return "";
+    if (el.id) return `//*[@id="${el.id}"]`;
+    const parts = [];
+    for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+      let i = 1;
+      for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+        if (sib.tagName === node.tagName) i += 1;
+      }
+      parts.unshift(`${node.tagName.toLowerCase()}[${i}]`);
+      if (node.tagName === "BODY") break;
+    }
+    return `/${parts.join("/")}`;
+  }
+
+  function buildTarget(el) {
+    const rect = el.getBoundingClientRect();
+    const nth = el.tagName ? Array.from(document.getElementsByTagName(el.tagName)).indexOf(el) : 0;
+    return {
+      selector: el.id ? `#${el.id}` : "",
+      xpath: xPathOf(el),
+      tag: el.tagName.toLowerCase(),
+      id: el.id || "",
+      classes: Array.from(el.classList || []),
+      textHint: (el.textContent || "").trim().slice(0, 60),
+      attrHint: el.getAttribute("alt") || el.getAttribute("aria-label") || el.getAttribute("title") || el.value || "",
+      nthOfType: Math.max(0, nth),
+      rect: { w: Math.round(rect.width), h: Math.round(rect.height) }
+    };
+  }
+
+  // Re-find a linked element by scoring candidate matches.
+  function findElement(target) {
+    if (!target) return null;
+    if (target.selector) {
+      const bySel = document.querySelector(target.selector);
+      if (bySel) return bySel;
+    }
+    if (target.xpath) {
+      try {
+        const r = document.evaluate(target.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+        if (r.singleNodeValue) return r.singleNodeValue;
+      } catch (_) {
+        /* malformed xpath */
+      }
+    }
+    // Fuzzy fallback: score every element of the same tag.
+    const candidates = target.tag ? Array.from(document.getElementsByTagName(target.tag)) : [];
+    let best = null;
+    let bestScore = 0;
+    candidates.forEach((el) => {
+      if (el.closest(`#${HOST_ID}`)) return;
+      let score = 0;
+      if (target.id && el.id === target.id) score += 5;
+      if (target.textHint && (el.textContent || "").trim().slice(0, 60) === target.textHint) score += 3;
+      const attr = el.getAttribute("alt") || el.getAttribute("aria-label") || el.getAttribute("title") || el.value || "";
+      if (target.attrHint && attr === target.attrHint) score += 3;
+      const cls = Array.from(el.classList || []);
+      const shared = target.classes.filter((c) => cls.includes(c)).length;
+      score += Math.min(shared, 3);
+      if (score > bestScore) {
+        bestScore = score;
+        best = el;
+      }
+    });
+    return bestScore >= 3 ? best : null;
+  }
+
+  /* ------------------------------------------------------- SVG overlay */
+  // Pins (element notes) and drawings (region notes) live in a fixed, isolated
+  // SVG layer in the shadow root; positions are recomputed from live element
+  // rects on scroll/resize.
+  const overlayItems = []; // { comment, el|null }
+
+  function overlayEl() {
+    return shadow ? shadow.getElementById("sn-overlay") : null;
+  }
+
+  function clearOverlay() {
+    overlayItems.length = 0;
+    const svg = overlayEl();
+    if (svg) svg.innerHTML = "";
+  }
+
+  function svgNode(name, attrs) {
+    const n = document.createElementNS("http://www.w3.org/2000/svg", name);
+    Object.entries(attrs || {}).forEach(([k, v]) => n.setAttribute(k, v));
+    return n;
+  }
+
+  function renderPin(comment, el) {
+    overlayItems.push({ comment, el });
+  }
+
+  function renderRegion(comment) {
+    const el = comment.anchor.relativeTo === "element" ? findElement(comment.anchor.target) : null;
+    if (comment.anchor.relativeTo === "element" && !el) return false;
+    overlayItems.push({ comment, el });
+    return true;
+  }
+
+  // Draw/position every overlay item from current geometry.
+  function drawOverlay() {
+    const svg = overlayEl();
+    if (!svg) return;
+    svg.innerHTML = "";
+    overlayItems.forEach(({ comment, el }) => {
+      const color = comment.color || settings.highlightColor;
+      if (comment.anchor.type === "element" && el) {
+        const r = el.getBoundingClientRect();
+        const box = svgNode("rect", {
+          x: r.left - 2, y: r.top - 2, width: r.width + 4, height: r.height + 4,
+          rx: 4, fill: "none", stroke: color, "stroke-width": 2,
+          "stroke-dasharray": comment.resolved ? "4 3" : "0",
+          class: "sn-ov-outline", "data-sidenote-id": comment.id
+        });
+        const pin = svgNode("circle", {
+          cx: r.right, cy: r.top, r: 9, fill: color, stroke: "#fff", "stroke-width": 2,
+          class: "sn-ov-pin", "data-sidenote-id": comment.id
+        });
+        svg.appendChild(box);
+        svg.appendChild(pin);
+      } else if (comment.anchor.type === "region") {
+        const origin = el ? el.getBoundingClientRect() : { left: 0, top: 0 };
+        (comment.anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin));
+      }
+    });
+  }
+
+  function drawShape(svg, comment, shape, origin) {
+    const pts = shape.points.map((p) => ({ x: p.x + origin.left, y: p.y + origin.top }));
+    const common = {
+      fill: "none", stroke: shape.color, "stroke-width": shape.width,
+      "stroke-linecap": "round", "stroke-linejoin": "round",
+      class: "sn-ov-shape", "data-sidenote-id": comment.id
+    };
+    if (shape.kind === "rect" && pts.length >= 2) {
+      const [a, b] = pts;
+      svg.appendChild(svgNode("rect", { ...common, x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(b.x - a.x), height: Math.abs(b.y - a.y) }));
+    } else if (shape.kind === "ellipse" && pts.length >= 2) {
+      const [a, b] = pts;
+      svg.appendChild(svgNode("ellipse", { ...common, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2 }));
+    } else if ((shape.kind === "line" || shape.kind === "arrow") && pts.length >= 2) {
+      const [a, b] = pts;
+      svg.appendChild(svgNode("line", { ...common, x1: a.x, y1: a.y, x2: b.x, y2: b.y }));
+      if (shape.kind === "arrow") {
+        const ang = Math.atan2(b.y - a.y, b.x - a.x);
+        const h = 10;
+        [ang - Math.PI / 7, ang + Math.PI / 7].forEach((t) => {
+          svg.appendChild(svgNode("line", { ...common, x1: b.x, y1: b.y, x2: b.x - h * Math.cos(t), y2: b.y - h * Math.sin(t) }));
+        });
+      }
+    } else if (shape.kind === "freehand" && pts.length >= 2) {
+      const d = pts.map((p, i) => `${i ? "L" : "M"}${p.x} ${p.y}`).join(" ");
+      svg.appendChild(svgNode("path", { ...common, d }));
+    }
+  }
+
+  let overlayRaf = 0;
+  function scheduleOverlayRedraw() {
+    if (overlayRaf) return;
+    overlayRaf = requestAnimationFrame(() => {
+      overlayRaf = 0;
+      drawOverlay();
+    });
+  }
+
+  /* ------------------------------------------------- Render dispatcher */
+  // Re-anchor and re-render every comment (and the draft) by anchor type.
+  // Returns the ids that could not be located so the UI can flag them.
+  function renderAnnotations() {
     unwrapAll();
+    clearOverlay();
     const orphaned = new Set();
     renderList().forEach((c) => {
-      const range = findRange(c.anchor);
-      if (!range) {
-        orphaned.add(c.id);
-        return;
+      const type = c.anchor.type;
+      if (type === "text") {
+        const range = findRange(c.anchor);
+        if (!range) return orphaned.add(c.id);
+        if (highlightRange(range, c).length === 0) orphaned.add(c.id);
+      } else if (type === "element") {
+        const el = findElement(c.anchor.target);
+        if (!el) return orphaned.add(c.id);
+        renderPin(c, el);
+      } else if (type === "region") {
+        if (!renderRegion(c)) orphaned.add(c.id);
       }
-      const spans = highlightRange(range, c);
-      if (spans.length === 0) orphaned.add(c.id);
     });
+    drawOverlay();
     return orphaned;
+  }
+
+  // Every element the note's highlight/pin/shape maps to, for scroll + emphasis.
+  function targetsFor(id) {
+    return Array.from(document.querySelectorAll(`.__sidenote_hl[data-sidenote-id="${cssEscape(id)}"]`)).concat(
+      overlayEl() ? Array.from(overlayEl().querySelectorAll(`[data-sidenote-id="${cssEscape(id)}"]`)) : []
+    );
   }
 
   function renderList() {
@@ -305,6 +486,7 @@
     hostEl.dataset.theme = currentTheme();
     shadow = hostEl.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${SIDEBAR_CSS}</style>
+      <svg id="sn-overlay" class="sn-overlay"></svg>
       <div id="sn-chrome"></div>
       <button id="sn-add" class="sn-add" type="button" hidden>💬 Add note</button>
       <div id="sn-toast" class="sn-toast" hidden></div>`;
@@ -312,7 +494,32 @@
 
     shadow.getElementById("sn-add").addEventListener("mousedown", (e) => e.preventDefault());
     shadow.getElementById("sn-add").addEventListener("click", onAddClick);
-    shadow.getElementById("sn-chrome").addEventListener("click", onChromeClick);
+    const chromeEl = shadow.getElementById("sn-chrome");
+    chromeEl.addEventListener("click", onChromeClick);
+    // Hover a card → emphasize its on-page target(s).
+    chromeEl.addEventListener("mouseover", (e) => {
+      const card = e.target.closest && e.target.closest(".sn-card");
+      if (card) emphasizeTargets(card.dataset.id, true);
+    });
+    chromeEl.addEventListener("mouseout", (e) => {
+      const card = e.target.closest && e.target.closest(".sn-card");
+      if (card) emphasizeTargets(card.dataset.id, false);
+    });
+
+    // Overlay pins/outlines/shapes: click → focus card, hover → emphasize card.
+    const svg = shadow.getElementById("sn-overlay");
+    svg.addEventListener("click", (e) => {
+      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+      if (id) focusCard(id);
+    });
+    svg.addEventListener("mouseover", (e) => {
+      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+      if (id) emphasizeCard(id, true);
+    });
+    svg.addEventListener("mouseout", (e) => {
+      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+      if (id) emphasizeCard(id, false);
+    });
   }
 
   function removeHost() {
@@ -387,17 +594,35 @@
     return `<div class="sn-palette">${swatches}</div>`;
   }
 
+  // The head of a card: a quote for text notes, a typed descriptor for element
+  // and drawing notes.
+  function anchorHeadHtml(c) {
+    const a = c.anchor;
+    if (a.type === "text") {
+      const quote = esc(a.exact.length > 140 ? a.exact.slice(0, 140) + "…" : a.exact);
+      return `<blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>`;
+    }
+    const t = a.target || {};
+    let label;
+    if (a.type === "element") {
+      const name = t.attrHint || t.textHint || (t.tag ? `<${t.tag}>` : "element");
+      label = `⬚ ${esc(name.length > 90 ? name.slice(0, 90) + "…" : name)}`;
+    } else {
+      label = `✎ Drawing${t.tag ? ` on <${esc(t.tag)}>` : ""}`;
+    }
+    return `<div class="sn-target" data-action="goto" data-id="${esc(c.id)}">${label}</div>`;
+  }
+
   function cardHtml(c, orphaned) {
     const isDraft = draft && draft.id === c.id;
     const editingRoot = c.id === editingId;
     const color = c.color || settings.highlightColor;
-    const quote = esc(c.anchor.exact.length > 140 ? c.anchor.exact.slice(0, 140) + "…" : c.anchor.exact);
     const classes = ["sn-card"];
     if (c.resolved) classes.push("sn-card-resolved");
     if (orphaned) classes.push("sn-card-orphan");
     if (editingRoot) classes.push("sn-card-editing");
 
-    const head = `<blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>`;
+    const head = anchorHeadHtml(c);
 
     // Editing the root note (also the state for a brand-new draft).
     if (editingRoot) {
@@ -473,7 +698,7 @@
   function render() {
     if (!shadow) return;
     hostEl.dataset.theme = currentTheme();
-    const orphaned = applyHighlights();
+    const orphaned = renderAnnotations();
     const chromeEl = shadow.getElementById("sn-chrome");
     let html = "";
     sidesInUse().forEach((side) => {
@@ -566,17 +791,61 @@
     }
   }
 
+  // Scroll to a note's target (text highlight, element pin, or drawing) and
+  // flash it. For overlay items we scroll the underlying element into view.
   function gotoHighlight(id) {
-    const spans = spansFor(id);
-    if (spans.length === 0) {
+    const c = renderList().find((x) => x.id === id);
+    const spans = Array.from(document.querySelectorAll(`.__sidenote_hl[data-sidenote-id="${cssEscape(id)}"]`));
+    if (spans.length) {
+      spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (c && c.anchor.type !== "text") {
+      const el = c.anchor.type === "element" ? findElement(c.anchor.target)
+        : c.anchor.relativeTo === "element" ? findElement(c.anchor.target) : null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      else {
+        showToast("This note's target wasn't found on the page.");
+        return;
+      }
+      setTimeout(scheduleOverlayRedraw, 350);
+    } else {
       showToast("This note's text wasn't found on the page.");
       return;
     }
-    spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    spans.forEach((s) => {
-      s.classList.add("__sidenote_hl_flash");
-      setTimeout(() => s.classList.remove("__sidenote_hl_flash"), 1000);
+    flashTargets(id);
+  }
+
+  function flashTargets(id) {
+    targetsFor(id).forEach((t) => {
+      const flashClass = t.classList.contains("__sidenote_hl") ? "__sidenote_hl_flash" : "sn-ov-flash";
+      t.classList.add(flashClass);
+      setTimeout(() => t.classList.remove(flashClass), 1000);
     });
+  }
+
+  // Bidirectional hover emphasis between a card and its on-page target(s).
+  function emphasizeTargets(id, on) {
+    targetsFor(id).forEach((t) => {
+      if (t.classList.contains("__sidenote_hl")) t.classList.toggle("__sidenote_hl_active", on);
+      else t.classList.toggle("sn-ov-active", on);
+    });
+  }
+
+  function emphasizeCard(id, on) {
+    if (!shadow) return;
+    const card = shadow.querySelector(`.sn-card[data-id="${cssEscape(id)}"]`);
+    if (card) card.classList.toggle("sn-card-hover", on);
+  }
+
+  function focusCard(id) {
+    const c = renderList().find((x) => x.id === id);
+    if (c) open[panelSideFor(c)] = true;
+    render();
+    const card = shadow.querySelector(`.sn-card[data-id="${cssEscape(id)}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      card.classList.add("sn-card-flash");
+      setTimeout(() => card.classList.remove("sn-card-flash"), 1000);
+    }
   }
 
   function findReply(replyId) {
@@ -792,23 +1061,39 @@
       showToast("Select some text on the page first.");
       return;
     }
+    hideAddButton();
+    window.getSelection().removeAllRanges();
+    createNote(anchor);
+  }
+
+  // The single note-creation pipeline. Every trigger (the selection button now,
+  // and the context menu / keyboard / drawing tools in later phases) funnels
+  // through here: it opens a draft card in edit mode on the appropriate side.
+  function createNote(anchor, opts) {
+    if (!active) return;
+    const o = opts || {};
     const inUse = sidesInUse();
-    const side = inUse.includes(settings.defaultSides) ? settings.defaultSides : inUse.includes("right") ? "right" : inUse[0];
+    const side = o.side && inUse.includes(o.side)
+      ? o.side
+      : inUse.includes(settings.defaultSides)
+      ? settings.defaultSides
+      : inUse.includes("right")
+      ? "right"
+      : inUse[0];
     draft = {
       id: genId("note"),
       anchor,
       body: "",
       side,
-      color: settings.highlightColor,
+      color: o.color || settings.highlightColor,
       resolved: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
       replies: []
     };
     editingId = draft.id;
+    colorPickerId = null;
     open[panelSideFor(draft)] = true;
-    hideAddButton();
-    window.getSelection().removeAllRanges();
     render();
   }
 
@@ -877,22 +1162,23 @@
   /* --------------------------------------------------------- Wiring */
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("click", (e) => {
-    // Click on a highlight → jump to its card.
+    // Click on a text highlight → jump to its card.
     const hl = e.target.closest && e.target.closest(".__sidenote_hl");
-    if (hl && active) {
-      const id = hl.getAttribute("data-sidenote-id");
-      const side = panelSideFor(renderList().find((c) => c.id === id) || { side: "right" });
-      open[side] = true;
-      render();
-      const card = shadow.querySelector(`.sn-card[data-id="${cssEscape(id)}"]`);
-      if (card) {
-        card.scrollIntoView({ behavior: "smooth", block: "center" });
-        card.classList.add("sn-card-flash");
-        setTimeout(() => card.classList.remove("sn-card-flash"), 1000);
-      }
-    }
+    if (hl && active) focusCard(hl.getAttribute("data-sidenote-id"));
+  });
+  // Hover a text highlight → emphasize its card (and vice versa, wired below).
+  document.addEventListener("mouseover", (e) => {
+    const hl = e.target.closest && e.target.closest(".__sidenote_hl");
+    if (hl && active) emphasizeCard(hl.getAttribute("data-sidenote-id"), true);
+  });
+  document.addEventListener("mouseout", (e) => {
+    const hl = e.target.closest && e.target.closest(".__sidenote_hl");
+    if (hl && active) emphasizeCard(hl.getAttribute("data-sidenote-id"), false);
   });
   window.addEventListener("scroll", hideAddButton, { passive: true });
+  // Keep pins/drawings aligned with their elements as the page scrolls/resizes.
+  window.addEventListener("scroll", scheduleOverlayRedraw, { passive: true });
+  window.addEventListener("resize", scheduleOverlayRedraw, { passive: true });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if ((area === "sync" && changes[SETTINGS_KEY]) || (area === "local" && changes[PAGES_KEY])) {
@@ -1007,13 +1293,25 @@
       padding: 10px 12px; box-shadow: var(--shadow);
     }
     .sn-card-editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-    .sn-card-resolved { opacity: 0.7; }
+    .sn-card-resolved { opacity: 0.75; }
+    .sn-card-resolved .sn-body { text-decoration: line-through; text-decoration-color: var(--text-faint); }
     .sn-card-orphan { border-style: dashed; }
+    .sn-card-hover { border-color: var(--accent); }
     .sn-card-flash { animation: sn-card-flash 1s ease; }
     @keyframes sn-card-flash {
       0%,100% { box-shadow: 0 0 0 0 rgba(26,115,232,0); }
       30% { box-shadow: 0 0 0 2px var(--accent); }
     }
+
+    /* Overlay layer for element pins and drawings. */
+    .sn-overlay {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 2147483645; overflow: visible;
+    }
+    .sn-overlay .sn-ov-pin, .sn-overlay .sn-ov-outline, .sn-overlay .sn-ov-shape { pointer-events: auto; cursor: pointer; }
+    .sn-overlay .sn-ov-active, .sn-overlay .sn-ov-flash { filter: drop-shadow(0 0 3px var(--accent)); }
+    .sn-overlay .sn-ov-flash { animation: sn-ov-flash 1s ease; }
+    @keyframes sn-ov-flash { 0%,100% { opacity: 1; } 40% { opacity: 0.35; } }
 
     .sn-quote {
       margin: 0 0 8px; padding: 4px 0 4px 10px; border-left: 3px solid var(--accent);
@@ -1021,6 +1319,12 @@
       max-height: 4.5em; overflow: hidden;
     }
     .sn-quote:hover { color: var(--text); }
+    .sn-target {
+      margin: 0 0 8px; padding: 4px 8px; border-radius: 6px; background: var(--surface-2);
+      color: var(--text-secondary); font-size: 12px; cursor: pointer;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .sn-target:hover { color: var(--text); }
     .sn-body { white-space: pre-wrap; word-break: break-word; line-height: 1.45; }
     .sn-body-empty { color: var(--text-faint); font-style: italic; }
 

@@ -25,8 +25,8 @@
 .__sidenote_hl.__sidenote_hl_resolved {
   background-color: transparent !important;
   box-shadow: none !important;
-  text-decoration: underline dotted rgba(128, 134, 139, 0.9) !important;
-  text-underline-offset: 3px !important;
+  text-decoration: line-through !important;
+  text-decoration-color: rgba(128, 134, 139, 0.9) !important;
 }
 
 @keyframes __sidenote_flash {

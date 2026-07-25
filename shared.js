@@ -85,17 +85,73 @@ function normalizeReply(raw) {
   };
 }
 
+const ANCHOR_TYPES = ["text", "element", "region"];
+const SHAPE_KINDS = ["rect", "ellipse", "line", "arrow", "freehand"];
+
+// A robust element locator: several independent signals scored on re-find, so a
+// linked button/image survives minor DOM churn (mirrors the text anchor's
+// prefix/suffix/index resilience). rect is a viewport-relative hint captured at
+// creation, used only as a last-resort tiebreaker.
+function normalizeTarget(raw) {
+  const t = raw && typeof raw === "object" ? raw : {};
+  return {
+    selector: String(t.selector || ""),
+    xpath: String(t.xpath || ""),
+    tag: String(t.tag || ""),
+    id: String(t.id || ""),
+    classes: Array.isArray(t.classes) ? t.classes.map(String) : [],
+    textHint: String(t.textHint || ""),
+    attrHint: String(t.attrHint || ""), // alt / aria-label / title / value
+    nthOfType: Number(t.nthOfType) || 0,
+    rect: t.rect && typeof t.rect === "object"
+      ? { w: Number(t.rect.w) || 0, h: Number(t.rect.h) || 0 }
+      : undefined
+  };
+}
+
+function normalizeShape(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const kind = SHAPE_KINDS.includes(raw.kind) ? raw.kind : "rect";
+  const points = Array.isArray(raw.points)
+    ? raw.points
+        .map((p) => ({ x: Number(p && p.x) || 0, y: Number(p && p.y) || 0 }))
+        .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+    : [];
+  return {
+    kind,
+    points,
+    color: /^#([A-Fa-f0-9]{6})$/.test(String(raw.color || "")) ? raw.color : "#f24822",
+    width: Number(raw.width) || 3
+  };
+}
+
+// The anchor is a typed union: text (quote), element (locator), or region
+// (shapes drawn relative to an element or the page). Legacy anchors have no
+// `type` and carry exact/prefix/suffix/index → normalized as "text".
+function normalizeAnchor(raw) {
+  const a = raw && typeof raw === "object" ? raw : {};
+  const type = ANCHOR_TYPES.includes(a.type) ? a.type : "text";
+  const out = { type };
+  if (type === "text") {
+    out.exact = String(a.exact || "");
+    out.prefix = String(a.prefix || "");
+    out.suffix = String(a.suffix || "");
+    out.index = Number(a.index) || 0;
+  } else {
+    out.target = normalizeTarget(a.target);
+  }
+  if (type === "region") {
+    out.relativeTo = a.relativeTo === "page" ? "page" : "element";
+    out.shapes = Array.isArray(a.shapes) ? a.shapes.map(normalizeShape).filter(Boolean) : [];
+  }
+  return out;
+}
+
 function normalizeComment(raw) {
   if (!raw || typeof raw !== "object" || !raw.anchor) return null;
-  const a = raw.anchor;
   return {
     id: String(raw.id || genId("note")),
-    anchor: {
-      exact: String(a.exact || ""),
-      prefix: String(a.prefix || ""),
-      suffix: String(a.suffix || ""),
-      index: Number(a.index) || 0
-    },
+    anchor: normalizeAnchor(raw.anchor),
     body: String(raw.body || ""),
     side: raw.side === "left" ? "left" : "right",
     color: /^#([A-Fa-f0-9]{6})$/.test(String(raw.color || "")) ? raw.color : undefined,

@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.3.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Hovering a note now emphasizes its linked text on the page — and hovering highlighted text emphasizes its note in the margin.",
+          "Groundwork for linking notes to page elements (buttons, images) and for freehand drawings, arriving in upcoming releases."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "Resolved notes now show a strikethrough (on both the note and its highlight) instead of a dotted underline; they remain in the margin and can still be deleted."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.1",
     "sections": [
       {

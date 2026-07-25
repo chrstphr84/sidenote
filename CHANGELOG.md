@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.3.0]
+
+### Added
+- Hovering a note now emphasizes its linked text on the page — and hovering highlighted text emphasizes its note in the margin.
+- Groundwork for linking notes to page elements (buttons, images) and for freehand drawings, arriving in upcoming releases.
+
+### Changed
+- Resolved notes now show a strikethrough (on both the note and its highlight) instead of a dotted underline; they remain in the margin and can still be deleted.
+
 ## [0.2.1]
 
 ### Changed
@@ -35,6 +44,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.3.0]: #030
 [0.2.1]: #021
 [0.2.0]: #020
 [0.1.0]: #010

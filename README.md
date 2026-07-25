@@ -5,12 +5,14 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.2.0).
+This is an early **proof of concept** (v0.3.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
 - Attach a comment to any text selection; the text is highlighted on the page and
   the comment appears in a side margin, linked to that highlight.
+- **Hover a note to see where it's linked** — its highlight is emphasized on the page,
+  and hovering the highlight emphasizes its note.
 - **Threaded replies** on any note; edit or delete individual replies.
 - **Per-note highlight color** — pick from a palette on each note, and the on-page
   highlight updates to match.
@@ -29,7 +31,8 @@ This is an early **proof of concept** (v0.2.0).
   a page changes so the text is gone, the note is kept and flagged rather than lost.
 - On-page indication of notes: the highlights themselves plus a **toolbar badge**
   counting the open notes on the current page.
-- Per-note actions: **edit**, **resolve**, **move to the other side**, and **delete**.
+- Per-note actions: **edit**, **resolve** (kept with a strikethrough, still deletable),
+  **move to the other side**, and **delete**.
 - **All notes** page (its own tab) listing every commented page, with **remove single**,
   **remove selected**, and **clear all**.
 - **Settings** page (its own tab) with Light / Dark / Auto theme, default margin side,
