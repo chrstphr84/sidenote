@@ -62,8 +62,8 @@ Two supporting refactors ride along:
 - "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
 - "Page no longer exists" (404): lazy "unreachable" status on the All-notes page; note snippets already give value without the live page.
 
-### Cross-cutting — Play nicely with a top-docked bar (e.g. Colorbars)
-Feasible and silent. Another extension of ours, **Colorbars**, overlays a fixed bar
+### Cross-cutting — Play nicely with a top-docked bar (e.g. Colorbars) — DONE (v0.5.0)
+Shipped. Another extension of ours, **Colorbars**, overlays a fixed bar
 at the top of the page (`#__domain_top_bar__`, `top:0`) that can obscure the top of
 SideNote's margin panel (title + badge). Because content scripts share the DOM (even
 across extensions/isolated worlds), SideNote can:
@@ -88,6 +88,6 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Highlight/select/draw palette | 3 | New (needs overlay) |
 | Contextual menu add | 1 | Done (v0.4.0) |
 | User keyboard shortcut | 1 | Done (v0.4.0) |
-| Move / hide the margin tab | 2 | New |
+| Move / hide the margin tab | 2 | Done (v0.5.0) |
 | Exports (MD/CSV/plaintext/PDF/Google) | 4 | New |
 | Error handling: page 404 | X-cutting | New |

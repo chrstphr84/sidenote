@@ -26,7 +26,10 @@ const DEFAULT_SETTINGS = {
   // must stay on (enforced in normalizeSettings).
   addSelectionButton: true, // the floating "Add note" button on text selection
   addContextMenu: true, // the right-click menu items
-  shortcutEnabled: true // the keyboard command (rebindable at chrome://extensions/shortcuts)
+  shortcutEnabled: true, // the keyboard command (rebindable at chrome://extensions/shortcuts)
+  // The speech-bubble margin tab (FAB).
+  showTab: true, // show the open/close tab on the page edge
+  fabPosition: 0.5 // vertical position as a fraction of the viewport (draggable)
 };
 
 const ACCENT = "#1a73e8";
@@ -49,6 +52,9 @@ function normalizeSettings(raw) {
     if (typeof raw.addSelectionButton === "boolean") s.addSelectionButton = raw.addSelectionButton;
     if (typeof raw.addContextMenu === "boolean") s.addContextMenu = raw.addContextMenu;
     if (typeof raw.shortcutEnabled === "boolean") s.shortcutEnabled = raw.shortcutEnabled;
+    if (typeof raw.showTab === "boolean") s.showTab = raw.showTab;
+    const fp = Number(raw.fabPosition);
+    if (Number.isFinite(fp)) s.fabPosition = Math.min(0.95, Math.max(0.05, fp));
   }
   // Keep at least one primary add-method enabled.
   if (!s.addSelectionButton && !s.addContextMenu) s.addSelectionButton = true;

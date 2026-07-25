@@ -12,6 +12,7 @@ const els = {
   sides: document.getElementById("sides"),
   color: document.getElementById("color"),
   width: document.getElementById("width"),
+  showTab: document.getElementById("show-tab"),
   addSelection: document.getElementById("add-selection"),
   addContext: document.getElementById("add-context"),
   shortcutEnabled: document.getElementById("shortcut-enabled"),
@@ -49,6 +50,7 @@ function render() {
   markSegment(els.sides, "side", settings.defaultSides);
   els.color.value = settings.highlightColor;
   els.width.value = settings.marginWidth;
+  els.showTab.checked = settings.showTab;
   els.addSelection.checked = settings.addSelectionButton;
   els.addContext.checked = settings.addContextMenu;
   els.shortcutEnabled.checked = settings.shortcutEnabled;
@@ -95,6 +97,11 @@ els.width.addEventListener("change", () => {
   settings.marginWidth = Number(els.width.value);
   settings = normalizeSettings(settings);
   render();
+  save();
+});
+
+els.showTab.addEventListener("change", () => {
+  settings.showTab = els.showTab.checked;
   save();
 });
 

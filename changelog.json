@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.5.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Drag the margin tab up or down to reposition it; its position is remembered.",
+          "Setting to hide the margin tab entirely — open the margin from the toolbar popup or by clicking a highlight or pin.",
+          "The margin now tucks below a bar added at the top of the page by another extension (such as Colorbars), and re-adjusts automatically when that bar changes height or is turned off."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.4.0",
     "sections": [
       {

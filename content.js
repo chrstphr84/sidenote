@@ -506,6 +506,12 @@
       const card = e.target.closest && e.target.closest(".sn-card");
       if (card) emphasizeTargets(card.dataset.id, false);
     });
+    // Drag a FAB vertically to reposition it (a plain click still opens).
+    chromeEl.addEventListener("mousedown", onFabMouseDown);
+
+    hostEl.style.setProperty("--sn-top-inset", `${topInset}px`);
+    watchTopBar();
+    applyTopInset();
 
     // Overlay pins/outlines/shapes: click → focus card, hover → emphasize card.
     const svg = shadow.getElementById("sn-overlay");
@@ -541,6 +547,74 @@
     else html.style.removeProperty("margin-left");
     if (right) html.style.setProperty("margin-right", `${right}px`, "important");
     else html.style.removeProperty("margin-right");
+  }
+
+  /* ------------------------------------------------- Top-bar interop */
+  // Other extensions/pages can dock a fixed bar at the top of the page (e.g. our
+  // Colorbars extension's #__domain_top_bar__). Because content scripts share
+  // the DOM, we can measure such a bar and inset the margin below it — silently,
+  // with no cooperation from the other extension. Generalizes to any known
+  // top-docked bar.
+  const KNOWN_TOP_BARS = ["#__domain_top_bar__"];
+  let topInset = 0;
+
+  function measureTopInset() {
+    let inset = 0;
+    KNOWN_TOP_BARS.forEach((sel) => {
+      let el;
+      try {
+        el = document.querySelector(sel);
+      } catch (_) {
+        return;
+      }
+      if (!el || el.id === HOST_ID) return;
+      const cs = getComputedStyle(el);
+      if (cs.position !== "fixed" || cs.display === "none" || cs.visibility === "hidden") return;
+      const r = el.getBoundingClientRect();
+      if (r.top <= 1 && r.height > 0 && r.width > window.innerWidth * 0.5) {
+        inset = Math.max(inset, Math.round(r.height));
+      }
+    });
+    return inset;
+  }
+
+  function applyTopInset() {
+    const next = measureTopInset();
+    if (next === topInset && hostEl && hostEl.style.getPropertyValue("--sn-top-inset")) return;
+    topInset = next;
+    if (hostEl) hostEl.style.setProperty("--sn-top-inset", `${topInset}px`);
+    repositionFabs();
+  }
+
+  // Watch for a top bar appearing, disappearing, or changing height (Colorbars
+  // rebuilds its bar element when its settings change).
+  let barMutationObserver = null;
+  let barResizeObserver = null;
+  function watchTopBar() {
+    if (!barMutationObserver) {
+      barMutationObserver = new MutationObserver(() => {
+        watchBarResize();
+        applyTopInset();
+      });
+      barMutationObserver.observe(document.documentElement, { childList: true });
+      if (document.body) barMutationObserver.observe(document.body, { childList: true });
+    }
+    watchBarResize();
+  }
+
+  function watchBarResize() {
+    if (typeof ResizeObserver === "undefined") return;
+    if (barResizeObserver) barResizeObserver.disconnect();
+    barResizeObserver = new ResizeObserver(() => applyTopInset());
+    KNOWN_TOP_BARS.forEach((sel) => {
+      let el;
+      try {
+        el = document.querySelector(sel);
+      } catch (_) {
+        return;
+      }
+      if (el) barResizeObserver.observe(el);
+    });
   }
 
   function esc(s) {
@@ -690,10 +764,56 @@
       </aside>`;
   }
 
+  // Vertical FAB position (px), honoring the top-bar inset and viewport bounds.
+  function clampFabTop(y) {
+    const min = topInset + 28;
+    const max = window.innerHeight - 28;
+    return Math.min(max, Math.max(min, y));
+  }
+
+  function fabTopPx() {
+    return clampFabTop(Math.round(settings.fabPosition * window.innerHeight));
+  }
+
   function fabHtml(side, count) {
-    return `<button class="sn-fab sn-fab-${side}" data-action="open" data-side="${side}" title="Open SideNote (${count} note${count === 1 ? "" : "s"})">
+    return `<button class="sn-fab sn-fab-${side}" data-action="open" data-side="${side}" style="top:${fabTopPx()}px" title="Open SideNote (${count} note${count === 1 ? "" : "s"}) — drag to move">
         <span class="sn-fab-mark">💬</span>${count ? `<span class="sn-fab-count">${count}</span>` : ""}
       </button>`;
+  }
+
+  // Reposition open FABs in place (on resize / inset change) without a re-render.
+  function repositionFabs() {
+    if (!shadow) return;
+    shadow.querySelectorAll(".sn-fab").forEach((fab) => {
+      fab.style.top = `${fabTopPx()}px`;
+    });
+  }
+
+  // Drag a FAB up/down; on release, persist the new position. A drag under the
+  // movement threshold falls through to the normal click (open the panel).
+  let fabDragged = false;
+  function onFabMouseDown(e) {
+    const fab = e.target.closest && e.target.closest(".sn-fab");
+    if (!fab) return;
+    const startY = e.clientY;
+    let moved = false;
+    const onMove = (ev) => {
+      if (Math.abs(ev.clientY - startY) > 4) moved = true;
+      if (moved) fab.style.top = `${clampFabTop(ev.clientY)}px`;
+    };
+    const onUp = (ev) => {
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("mouseup", onUp, true);
+      if (!moved) return;
+      // Suppress only the synthetic click that immediately follows this drag;
+      // clear on a macrotask so a later click still opens the panel.
+      fabDragged = true;
+      setTimeout(() => (fabDragged = false), 0);
+      settings.fabPosition = Math.min(0.95, Math.max(0.05, clampFabTop(ev.clientY) / window.innerHeight));
+      setSettings(settings);
+    };
+    document.addEventListener("mousemove", onMove, true);
+    document.addEventListener("mouseup", onUp, true);
   }
 
   function render() {
@@ -705,7 +825,7 @@
     sidesInUse().forEach((side) => {
       if (open[side]) {
         html += panelHtml(side, orphaned);
-      } else {
+      } else if (settings.showTab) {
         const count = commentsForSide(side).filter((c) => !c.resolved).length;
         html += fabHtml(side, count);
       }
@@ -732,6 +852,7 @@
 
     switch (action) {
       case "open":
+        if (fabDragged) break; // this click ended a drag; cleared on a timeout
         open[side] = true;
         render();
         break;
@@ -1217,7 +1338,11 @@
   window.addEventListener("scroll", hideAddButton, { passive: true });
   // Keep pins/drawings aligned with their elements as the page scrolls/resizes.
   window.addEventListener("scroll", scheduleOverlayRedraw, { passive: true });
-  window.addEventListener("resize", scheduleOverlayRedraw, { passive: true });
+  window.addEventListener("resize", () => {
+    scheduleOverlayRedraw();
+    applyTopInset();
+    repositionFabs();
+  }, { passive: true });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if ((area === "sync" && changes[SETTINGS_KEY]) || (area === "local" && changes[PAGES_KEY])) {
@@ -1312,7 +1437,7 @@
     }
 
     .sn-panel {
-      position: fixed; top: 0; bottom: 0; width: 320px;
+      position: fixed; top: var(--sn-top-inset, 0px); bottom: 0; width: 320px;
       background: var(--bg); color: var(--text);
       border-left: 1px solid var(--border); border-right: 1px solid var(--border);
       box-shadow: var(--shadow); z-index: 2147483646;
@@ -1446,8 +1571,10 @@
       position: fixed; top: 50%; transform: translateY(-50%);
       display: flex; align-items: center; gap: 6px; z-index: 2147483646;
       border: 1px solid var(--border); background: var(--surface); color: var(--text);
-      box-shadow: var(--shadow); cursor: pointer; padding: 8px 10px; font-size: 14px;
+      box-shadow: var(--shadow); cursor: grab; padding: 8px 10px; font-size: 14px;
+      user-select: none;
     }
+    .sn-fab:active { cursor: grabbing; }
     .sn-fab-right { right: 0; border-radius: 999px 0 0 999px; }
     .sn-fab-left { left: 0; border-radius: 0 999px 999px 0; }
     .sn-fab:hover { background: var(--surface-2); }
