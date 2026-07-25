@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.2.0]
+
+### Added
+- Threaded replies: reply to a note, and edit or delete individual replies. Reply counts show on the All-notes page.
+- Per-note highlight color: pick from a palette on each note; the on-page highlight updates to match.
+- Single-page-app support: when a site changes the page without a full reload, SideNote re-keys to the new page's notes automatically.
+
 ## [0.1.0]
 
 ### Added
@@ -23,4 +30,5 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.2.0]: #020
 [0.1.0]: #010

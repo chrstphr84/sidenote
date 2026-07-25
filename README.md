@@ -5,12 +5,17 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.1.0).
+This is an early **proof of concept** (v0.2.0).
 
 ## Features
 
 - Attach a comment to any text selection; the text is highlighted on the page and
   the comment appears in a side margin, linked to that highlight.
+- **Threaded replies** on any note; edit or delete individual replies.
+- **Per-note highlight color** — pick from a palette on each note, and the on-page
+  highlight updates to match.
+- **Single-page-app aware**: when a site swaps the page without a full reload, SideNote
+  re-keys to the new page's notes automatically.
 - Click a highlight to jump to its note, and a note's quote to scroll back to the text.
 - Margin can sit on the **Left**, **Right**, or **Both** sides — a default in
   Settings, overridable per page from the popup.

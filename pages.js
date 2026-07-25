@@ -52,7 +52,9 @@ function sortedKeys() {
 function noteSnippet(c) {
   const quote = esc(c.anchor.exact.length > 90 ? c.anchor.exact.slice(0, 90) + "…" : c.anchor.exact);
   const body = c.body ? ` — ${esc(c.body.length > 120 ? c.body.slice(0, 120) + "…" : c.body)}` : "";
-  return `<div class="page-note"><b>“${quote}”</b>${body}</div>`;
+  const replies = (c.replies || []).length;
+  const repliesLabel = replies ? ` <span style="color:var(--text-faint)">· ${replies} repl${replies === 1 ? "y" : "ies"}</span>` : "";
+  return `<div class="page-note"><b>“${quote}”</b>${body}${repliesLabel}</div>`;
 }
 
 function render() {

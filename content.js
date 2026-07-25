@@ -13,7 +13,7 @@
 
 (() => {
   const HOST_ID = "__sidenote_root__";
-  const PAGE_KEY = pageKeyFromHref(location.href);
+  let PAGE_KEY = pageKeyFromHref(location.href);
 
   // Browser-internal / unsupported pages: do nothing.
   if (!PAGE_KEY || !isSupportedPageUrl(location.href)) return;
@@ -26,7 +26,9 @@
   let entry = null; // this page's stored entry (or null)
   let comments = []; // persisted comments for this page
   let draft = null; // in-progress new comment (not yet persisted)
-  let editingId = null; // id of the comment currently being edited
+  let replyDraft = null; // in-progress reply: { commentId, reply }
+  let editingId = null; // id of the comment/reply currently being edited
+  let colorPickerId = null; // id of the comment whose color palette is open
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
@@ -347,34 +349,97 @@
     }
   }
 
+  function editorHtml(id, value, placeholder) {
+    return `<textarea class="sn-textarea" data-id="${esc(id)}" placeholder="${esc(placeholder)}" rows="3">${esc(value || "")}</textarea>
+      <div class="sn-card-actions">
+        <button class="sn-btn sn-btn-primary" data-action="save" data-id="${esc(id)}">Save</button>
+        <button class="sn-btn" data-action="cancel" data-id="${esc(id)}">Cancel</button>
+      </div>`;
+  }
+
+  function repliesForCard(c) {
+    const drafted = replyDraft && replyDraft.commentId === c.id ? [replyDraft.reply] : [];
+    return (c.replies || []).concat(drafted);
+  }
+
+  function replyHtml(comment, reply) {
+    if (reply.id === editingId) {
+      return `<div class="sn-reply sn-reply-editing">${editorHtml(reply.id, reply.body, "Write a reply…")}</div>`;
+    }
+    return `<div class="sn-reply">
+        <div class="sn-reply-body">${esc(reply.body)}</div>
+        <div class="sn-reply-meta">
+          <span>${esc(formatTime(reply.updatedAt || reply.createdAt))}</span>
+          <span class="sn-card-tools">
+            <button class="sn-icon" title="Edit reply" data-action="edit-reply" data-id="${esc(reply.id)}">✎</button>
+            <button class="sn-icon sn-icon-danger" title="Delete reply" data-action="delete-reply" data-id="${esc(reply.id)}" data-comment="${esc(comment.id)}">🗑</button>
+          </span>
+        </div>
+      </div>`;
+  }
+
+  function paletteHtml(c) {
+    const current = c.color || settings.highlightColor;
+    const swatches = HIGHLIGHT_PALETTE.map(
+      (col) =>
+        `<button class="sn-swatch${col.toLowerCase() === current.toLowerCase() ? " sel" : ""}" style="background:${col}" title="${col}" data-action="set-color" data-id="${esc(c.id)}" data-color="${col}"></button>`
+    ).join("");
+    return `<div class="sn-palette">${swatches}</div>`;
+  }
+
   function cardHtml(c, orphaned) {
-    const editing = c.id === editingId;
+    const isDraft = draft && draft.id === c.id;
+    const editingRoot = c.id === editingId;
+    const color = c.color || settings.highlightColor;
     const quote = esc(c.anchor.exact.length > 140 ? c.anchor.exact.slice(0, 140) + "…" : c.anchor.exact);
     const classes = ["sn-card"];
     if (c.resolved) classes.push("sn-card-resolved");
     if (orphaned) classes.push("sn-card-orphan");
-    if (editing) classes.push("sn-card-editing");
+    if (editingRoot) classes.push("sn-card-editing");
 
-    const bodyBlock = editing
-      ? `<textarea class="sn-textarea" data-id="${esc(c.id)}" placeholder="Add your note…" rows="3">${esc(c.body || "")}</textarea>
-         <div class="sn-card-actions">
-           <button class="sn-btn sn-btn-primary" data-action="save" data-id="${esc(c.id)}">Save</button>
-           <button class="sn-btn" data-action="cancel" data-id="${esc(c.id)}">Cancel</button>
-         </div>`
-      : `<div class="sn-body">${c.body ? esc(c.body) : '<span class="sn-body-empty">No note text</span>'}</div>
-         <div class="sn-card-meta">
-           <span>${esc(formatTime(c.updatedAt || c.createdAt))}${orphaned ? " · not found on page" : ""}</span>
-           <span class="sn-card-tools">
-             <button class="sn-icon" title="${c.resolved ? "Reopen" : "Resolve"}" data-action="resolve" data-id="${esc(c.id)}">${c.resolved ? "↩" : "✓"}</button>
-             <button class="sn-icon" title="Move to other side" data-action="flip" data-id="${esc(c.id)}">⇄</button>
-             <button class="sn-icon" title="Edit" data-action="edit" data-id="${esc(c.id)}">✎</button>
-             <button class="sn-icon sn-icon-danger" title="Delete" data-action="delete" data-id="${esc(c.id)}">🗑</button>
-           </span>
-         </div>`;
+    const head = `<blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>`;
+
+    // Editing the root note (also the state for a brand-new draft).
+    if (editingRoot) {
+      return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">
+          ${head}
+          ${editorHtml(c.id, c.body, "Add your note…")}
+        </article>`;
+    }
+
+    const bodyBlock = `<div class="sn-body">${c.body ? esc(c.body) : '<span class="sn-body-empty">No note text</span>'}</div>`;
+
+    // A draft is never persisted yet, so no thread/tools until it's saved.
+    if (isDraft) {
+      return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">${head}${bodyBlock}</article>`;
+    }
+
+    const replies = repliesForCard(c).map((r) => replyHtml(c, r)).join("");
+    const repliesBlock = replies ? `<div class="sn-replies">${replies}</div>` : "";
+    const replyBtn =
+      replyDraft && replyDraft.commentId === c.id
+        ? ""
+        : `<button class="sn-reply-add" data-action="reply" data-id="${esc(c.id)}">Reply</button>`;
+
+    const tools = `<div class="sn-card-meta">
+        <span>${esc(formatTime(c.updatedAt || c.createdAt))}${orphaned ? " · not found on page" : ""}</span>
+        <span class="sn-card-tools">
+          <button class="sn-icon sn-color-dot" title="Highlight color" data-action="color" data-id="${esc(c.id)}" style="color:${color}">●</button>
+          <button class="sn-icon" title="${c.resolved ? "Reopen" : "Resolve"}" data-action="resolve" data-id="${esc(c.id)}">${c.resolved ? "↩" : "✓"}</button>
+          <button class="sn-icon" title="Move to other side" data-action="flip" data-id="${esc(c.id)}">⇄</button>
+          <button class="sn-icon" title="Edit note" data-action="edit" data-id="${esc(c.id)}">✎</button>
+          <button class="sn-icon sn-icon-danger" title="Delete note" data-action="delete" data-id="${esc(c.id)}">🗑</button>
+        </span>
+      </div>`;
+    const palette = colorPickerId === c.id ? paletteHtml(c) : "";
 
     return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">
-        <blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>
+        ${head}
         ${bodyBlock}
+        ${repliesBlock}
+        ${replyBtn}
+        ${tools}
+        ${palette}
       </article>`;
   }
 
@@ -446,7 +511,7 @@
         break;
       case "close":
         open[side] = false;
-        if (id === editingId || (draft && draft.id === editingId)) cancelEdit();
+        cancelEdit();
         render();
         break;
       case "goto":
@@ -454,6 +519,7 @@
         break;
       case "edit":
         editingId = id;
+        colorPickerId = null;
         render();
         break;
       case "cancel":
@@ -462,6 +528,23 @@
         break;
       case "save":
         saveEdit(id);
+        break;
+      case "reply":
+        startReply(id);
+        break;
+      case "edit-reply":
+        editingId = id;
+        render();
+        break;
+      case "delete-reply":
+        deleteReply(el.dataset.comment, id);
+        break;
+      case "color":
+        colorPickerId = colorPickerId === id ? null : id;
+        render();
+        break;
+      case "set-color":
+        setColor(id, el.dataset.color);
         break;
       case "resolve":
         toggleResolve(id);
@@ -496,10 +579,19 @@
     });
   }
 
+  function findReply(replyId) {
+    for (const c of comments) {
+      const reply = (c.replies || []).find((r) => r.id === replyId);
+      if (reply) return { comment: c, reply };
+    }
+    return null;
+  }
+
   function saveEdit(id) {
     const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(id)}"]`);
     const body = ta ? ta.value.trim() : "";
 
+    // New top-level comment draft.
     if (draft && draft.id === id) {
       draft.body = body;
       draft.updatedAt = Date.now();
@@ -515,6 +607,45 @@
       return;
     }
 
+    // New reply draft — drop it if empty.
+    if (replyDraft && replyDraft.reply.id === id) {
+      const commentId = replyDraft.commentId;
+      replyDraft = null;
+      editingId = null;
+      if (!body) {
+        render();
+        return;
+      }
+      const reply = { id, body, createdAt: Date.now(), updatedAt: Date.now() };
+      const c = comments.find((x) => x.id === commentId);
+      if (c) c.replies = (c.replies || []).concat([reply]); // optimistic
+      mutatePage((e) => {
+        const target = (e.comments || []).find((x) => x.id === commentId);
+        if (target) {
+          target.replies = (target.replies || []).filter((r) => r.id !== id).concat([reply]);
+        }
+      });
+      return;
+    }
+
+    // Editing an existing reply.
+    const rt = findReply(id);
+    if (rt) {
+      editingId = null;
+      rt.reply.body = body;
+      rt.reply.updatedAt = Date.now();
+      mutatePage((e) => {
+        const c = (e.comments || []).find((x) => x.id === rt.comment.id);
+        const r = c && (c.replies || []).find((x) => x.id === id);
+        if (r) {
+          r.body = body;
+          r.updatedAt = rt.reply.updatedAt;
+        }
+      });
+      return;
+    }
+
+    // Editing an existing top-level note body.
     const c = comments.find((x) => x.id === id);
     if (c) {
       c.body = body;
@@ -530,8 +661,43 @@
     editingId = null;
   }
 
+  function startReply(commentId) {
+    const reply = { id: genId("reply"), body: "", createdAt: Date.now(), updatedAt: Date.now() };
+    replyDraft = { commentId, reply };
+    editingId = reply.id;
+    colorPickerId = null;
+    render();
+  }
+
+  function deleteReply(commentId, replyId) {
+    const c = comments.find((x) => x.id === commentId);
+    if (c) c.replies = (c.replies || []).filter((r) => r.id !== replyId);
+    if (editingId === replyId) editingId = null;
+    mutatePage((e) => {
+      const target = (e.comments || []).find((x) => x.id === commentId);
+      if (target) target.replies = (target.replies || []).filter((r) => r.id !== replyId);
+    });
+  }
+
+  function setColor(commentId, color) {
+    if (!/^#([A-Fa-f0-9]{6})$/.test(String(color || ""))) return;
+    colorPickerId = null;
+    const c = comments.find((x) => x.id === commentId) || (draft && draft.id === commentId ? draft : null);
+    if (!c) return;
+    c.color = color;
+    if (draft && draft.id === commentId) {
+      render();
+      return;
+    }
+    mutatePage((e) => {
+      const target = (e.comments || []).find((x) => x.id === commentId);
+      if (target) target.color = color;
+    });
+  }
+
   function cancelEdit() {
     if (draft && draft.id === editingId) draft = null;
+    if (replyDraft && replyDraft.reply.id === editingId) replyDraft = null;
     editingId = null;
   }
 
@@ -636,7 +802,8 @@
       color: settings.highlightColor,
       resolved: false,
       createdAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      replies: []
     };
     editingId = draft.id;
     open[panelSideFor(draft)] = true;
@@ -661,16 +828,20 @@
   }
 
   /* ------------------------------------------------------ Mount cycle */
+  // Open a side automatically when it already has unresolved notes.
+  function autoOpenSidesWithNotes() {
+    sidesInUse().forEach((side) => {
+      if (commentsForSide(side).some((c) => !c.resolved)) open[side] = true;
+    });
+  }
+
   function applyState() {
     const wasActive = active;
     active = isPageEnabled(entry, settings);
 
     if (active && !wasActive) {
       buildHost();
-      // Auto-open a side when it already has notes.
-      sidesInUse().forEach((side) => {
-        if (commentsForSide(side).some((c) => !c.resolved)) open[side] = true;
-      });
+      autoOpenSidesWithNotes();
     }
     if (!active && wasActive) {
       unwrapAll();
@@ -690,11 +861,17 @@
     const pages = await getPages();
     entry = pages[PAGE_KEY] || null;
     comments = entry ? entry.comments.slice() : [];
-    // Drop a stale editing id.
-    if (editingId && !(draft && draft.id === editingId) && !comments.some((c) => c.id === editingId)) {
-      editingId = null;
-    }
+    // Drop a stale editing id (unless it points at a live draft/reply/note).
+    if (editingId && !editIdStillValid()) editingId = null;
+    if (colorPickerId && !comments.some((c) => c.id === colorPickerId)) colorPickerId = null;
     applyState();
+  }
+
+  function editIdStillValid() {
+    if (draft && draft.id === editingId) return true;
+    if (replyDraft && replyDraft.reply.id === editingId) return true;
+    if (comments.some((c) => c.id === editingId)) return true;
+    return comments.some((c) => (c.replies || []).some((r) => r.id === editingId));
   }
 
   /* --------------------------------------------------------- Wiring */
@@ -735,6 +912,40 @@
       render();
     }
   });
+
+  // Single-page-app navigation: the URL can change without a reload. Detect it
+  // (popstate + a light poll, since the page's pushState calls aren't visible
+  // from the content script's world) and re-key to the new page's notes.
+  let lastHref = location.href;
+  function onLocationMaybeChanged() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    hideAddButton();
+    const newKey = pageKeyFromHref(location.href);
+    if (newKey === PAGE_KEY) return; // hash-only change keeps the same notes
+
+    if (active) unwrapAll();
+    PAGE_KEY = newKey;
+    draft = null;
+    replyDraft = null;
+    editingId = null;
+    colorPickerId = null;
+    open.left = false;
+    open.right = false;
+    reload().then(() => {
+      if (active) {
+        autoOpenSidesWithNotes();
+        render();
+      }
+      // The SPA may still be swapping content; re-anchor once more shortly.
+      setTimeout(() => {
+        if (active) render();
+      }, 350);
+    });
+  }
+  window.addEventListener("popstate", onLocationMaybeChanged);
+  window.addEventListener("hashchange", onLocationMaybeChanged);
+  setInterval(onLocationMaybeChanged, 700);
 
   reload();
 
@@ -832,6 +1043,31 @@
     .sn-btn-primary:hover { filter: brightness(0.96); background: var(--accent); }
 
     .sn-empty { color: var(--text-secondary); line-height: 1.5; padding: 8px 4px; }
+
+    /* Threaded replies */
+    .sn-replies { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .sn-reply { border-left: 2px solid var(--border); padding: 3px 0 3px 8px; }
+    .sn-reply-body { white-space: pre-wrap; word-break: break-word; font-size: 12.5px; line-height: 1.4; }
+    .sn-reply-meta {
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--text-faint); font-size: 10.5px; margin-top: 2px;
+    }
+    .sn-reply-editing { border-left-color: var(--accent); }
+    .sn-reply-add {
+      margin-top: 8px; align-self: flex-start; border: none; background: transparent;
+      color: var(--accent); cursor: pointer; font-size: 12px; padding: 0; font-weight: 500;
+    }
+    .sn-reply-add:hover { text-decoration: underline; }
+
+    /* Per-note color */
+    .sn-color-dot { font-size: 13px; line-height: 1; }
+    .sn-palette { display: flex; gap: 6px; margin-top: 8px; }
+    .sn-swatch {
+      width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+      cursor: pointer; padding: 0;
+    }
+    .sn-swatch:hover { transform: scale(1.12); }
+    .sn-swatch.sel { box-shadow: 0 0 0 2px var(--accent); }
 
     .sn-foot {
       display: flex; gap: 16px; padding: 10px 14px; border-top: 1px solid var(--border);

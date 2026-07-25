@@ -26,6 +26,9 @@ const DEFAULT_SETTINGS = {
 
 const ACCENT = "#1a73e8";
 
+// Highlighter presets offered per note (yellow, blue, green, red, orange, purple).
+const HIGHLIGHT_PALETTE = ["#ffe066", "#a5d8ff", "#b2f2bb", "#ffc9c9", "#ffd8a8", "#eebefa"];
+
 /* ------------------------------------------------------------- Settings */
 function normalizeSettings(raw) {
   const s = { ...DEFAULT_SETTINGS };
@@ -68,15 +71,49 @@ function isSupportedPageUrl(href) {
 
 /* --------------------------------------------------------------- Pages */
 // A page entry: { url, title, updatedAt, enabled?, sides?, comments: [] }
-// A comment:    { id, anchor:{exact,prefix,suffix,index}, body, side,
-//                 color, resolved, createdAt, updatedAt }
+// A comment:    { id, anchor:{exact,prefix,suffix,index}, body, side, color,
+//                 resolved, createdAt, updatedAt, replies: [] }
+// A reply:      { id, body, createdAt, updatedAt }
+
+function normalizeReply(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    id: String(raw.id || genId("reply")),
+    body: String(raw.body || ""),
+    createdAt: Number(raw.createdAt) || Date.now(),
+    updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now()
+  };
+}
+
+function normalizeComment(raw) {
+  if (!raw || typeof raw !== "object" || !raw.anchor) return null;
+  const a = raw.anchor;
+  return {
+    id: String(raw.id || genId("note")),
+    anchor: {
+      exact: String(a.exact || ""),
+      prefix: String(a.prefix || ""),
+      suffix: String(a.suffix || ""),
+      index: Number(a.index) || 0
+    },
+    body: String(raw.body || ""),
+    side: raw.side === "left" ? "left" : "right",
+    color: /^#([A-Fa-f0-9]{6})$/.test(String(raw.color || "")) ? raw.color : undefined,
+    resolved: Boolean(raw.resolved),
+    createdAt: Number(raw.createdAt) || Date.now(),
+    updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now(),
+    replies: Array.isArray(raw.replies) ? raw.replies.map(normalizeReply).filter(Boolean) : []
+  };
+}
 
 function normalizePages(raw) {
   const out = {};
   if (!raw || typeof raw !== "object") return out;
   for (const [key, entry] of Object.entries(raw)) {
     if (!entry || typeof entry !== "object") continue;
-    const comments = Array.isArray(entry.comments) ? entry.comments.filter(Boolean) : [];
+    const comments = Array.isArray(entry.comments)
+      ? entry.comments.map(normalizeComment).filter(Boolean)
+      : [];
     out[key] = {
       url: String(entry.url || key),
       title: String(entry.title || ""),

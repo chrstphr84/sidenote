@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.2.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Threaded replies: reply to a note, and edit or delete individual replies. Reply counts show on the All-notes page.",
+          "Per-note highlight color: pick from a palette on each note; the on-page highlight updates to match.",
+          "Single-page-app support: when a site changes the page without a full reload, SideNote re-keys to the new page's notes automatically."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.1.0",
     "sections": [
       {
