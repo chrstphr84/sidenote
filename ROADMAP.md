@@ -54,10 +54,12 @@ Two supporting refactors ride along:
 - Built on the Phase 0 overlay + `region` anchor; drawings anchor to the element beneath
   them (or the page) and open a note card for a comment.
 
-### Phase 4 — Export
-- Markdown / CSV / plaintext (pure client-side transforms over the note model).
-- PDF (styled print view).
-- Google Docs / Sheets (needs `identity` + OAuth scopes; heaviest, gated last).
+### Phase 4 — Export — MOSTLY DONE (v0.7.0)
+- Markdown / CSV / plaintext (pure client-side transforms over the note model) — DONE.
+- PDF (styled print view) — DONE.
+- Google Docs / Sheets — PENDING. Needs a Google Cloud OAuth client + the `identity`
+  permission and Docs/Sheets API scopes; the user must register the OAuth client. Gated
+  until that setup is done.
 
 ### Cross-cutting — Error handling
 - "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
@@ -90,5 +92,5 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Contextual menu add | 1 | Done (v0.4.0) |
 | User keyboard shortcut | 1 | Done (v0.4.0) |
 | Move / hide the margin tab | 2 | Done (v0.5.0) |
-| Exports (MD/CSV/plaintext/PDF/Google) | 4 | New |
+| Exports (MD/CSV/plaintext/PDF/Google) | 4 | MD/CSV/txt/PDF done (v0.7.0); Google pending (OAuth) |
 | Error handling: page 404 | X-cutting | New |

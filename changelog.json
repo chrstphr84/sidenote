@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.7.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Export your notes from the All notes page as Markdown, plain text, CSV, or PDF (via a print view).",
+          "Export every page at once, or select specific pages and export just those."
+        ]
+      },
+      {
+        "label": "Fixed",
+        "items": [
+          "The All notes page no longer errors on element-linked or drawing notes — it shows a short descriptor instead of a text quote."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.6.0",
     "sections": [
       {

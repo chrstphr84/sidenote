@@ -13,6 +13,8 @@ const els = {
   removeSelected: document.getElementById("remove-selected"),
   clearAll: document.getElementById("clear-all"),
   settingsBtn: document.getElementById("settings-btn"),
+  exportFormat: document.getElementById("export-format"),
+  exportBtn: document.getElementById("export-btn"),
   toast: document.getElementById("toast")
 };
 
@@ -50,11 +52,19 @@ function sortedKeys() {
 }
 
 function noteSnippet(c) {
-  const quote = esc(c.anchor.exact.length > 90 ? c.anchor.exact.slice(0, 90) + "…" : c.anchor.exact);
+  const a = c.anchor || {};
+  let head;
+  if ((a.type || "text") === "text") {
+    const q = String(a.exact || "");
+    head = `“${esc(q.length > 90 ? q.slice(0, 90) + "…" : q)}”`;
+  } else {
+    // Element / drawing notes have no quoted text — show a typed descriptor.
+    head = esc(exportAnchorLabel(a));
+  }
   const body = c.body ? ` — ${esc(c.body.length > 120 ? c.body.slice(0, 120) + "…" : c.body)}` : "";
   const replies = (c.replies || []).length;
   const repliesLabel = replies ? ` <span style="color:var(--text-faint)">· ${replies} repl${replies === 1 ? "y" : "ies"}</span>` : "";
-  return `<div class="page-note"><b>“${quote}”</b>${body}${repliesLabel}</div>`;
+  return `<div class="page-note"><b>${head}</b>${body}${repliesLabel}</div>`;
 }
 
 function render() {
@@ -110,6 +120,9 @@ function syncBulkState() {
     : "Remove selected";
   els.selectAll.checked = boxes.length > 0 && checked.length === boxes.length;
   els.selectAll.indeterminate = checked.length > 0 && checked.length < boxes.length;
+
+  const scope = checked.length ? checked.length : boxes.length;
+  els.exportBtn.textContent = checked.length ? `Export selected (${scope})` : `Export all (${scope})`;
 }
 
 async function removeKeys(keys) {
@@ -152,6 +165,64 @@ els.clearAll.addEventListener("click", () => {
 });
 
 els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());
+
+/* --------------------------------------------------------------- Export */
+function exportScope() {
+  const selected = selectedKeys();
+  const keys = selected.length ? selected : Object.keys(pages);
+  const subset = {};
+  keys.forEach((k) => {
+    if (pages[k]) subset[k] = pages[k];
+  });
+  return subset;
+}
+
+function downloadFile(name, text, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function printHtml(html) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    toast("Allow pop-ups to export a PDF");
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  // Give the new document a tick to lay out, then open the print dialog
+  // (the user picks "Save as PDF").
+  w.onload = () => setTimeout(() => w.print(), 150);
+}
+
+els.exportBtn.addEventListener("click", () => {
+  const subset = exportScope();
+  if (Object.keys(subset).length === 0) {
+    toast("Nothing to export");
+    return;
+  }
+  const fmt = els.exportFormat.value;
+  const base = `sidenote-export-${stamp()}`;
+  if (fmt === "markdown") downloadFile(`${base}.md`, toMarkdown(subset), "text/markdown");
+  else if (fmt === "plaintext") downloadFile(`${base}.txt`, toPlaintext(subset), "text/plain");
+  else if (fmt === "csv") downloadFile(`${base}.csv`, toCsv(subset), "text/csv");
+  else if (fmt === "pdf") printHtml(toExportHtml(subset));
+  toast(fmt === "pdf" ? "Opening print view…" : "Exported");
+});
 
 /* ----------------------------------------------------------------- Load */
 async function load() {

@@ -22,6 +22,15 @@
           <input type="checkbox" id="select-all" style="width: 16px; height: 16px; accent-color: var(--accent)" />
           Select all
         </label>
+        <span class="row" style="gap: 8px">
+          <select id="export-format" title="Export format">
+            <option value="markdown">Markdown</option>
+            <option value="plaintext">Plain text</option>
+            <option value="csv">CSV</option>
+            <option value="pdf">PDF</option>
+          </select>
+          <button class="secondary" type="button" id="export-btn">Export all</button>
+        </span>
         <span class="spacer"></span>
         <button class="danger" type="button" id="remove-selected" disabled>Remove selected</button>
         <button class="danger" type="button" id="clear-all">Clear all</button>
@@ -31,6 +40,7 @@
     </main>
     <div id="toast" class="toast"></div>
     <script src="shared.js"></script>
+    <script src="export.js"></script>
     <script src="pages.js"></script>
   </body>
 </html>

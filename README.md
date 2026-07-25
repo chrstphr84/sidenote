@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.6.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.7.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -46,6 +46,7 @@ This is an early **proof of concept** (v0.6.0). See [ROADMAP.md](ROADMAP.md) for
   **move to the other side**, and **delete**.
 - **All notes** page (its own tab) listing every commented page, with **remove single**,
   **remove selected**, and **clear all**.
+- **Export** all or selected pages as **Markdown, plain text, CSV, or PDF** (print view).
 - **Settings** page (its own tab) with Light / Dark / Auto theme, default margin side,
   highlight color, and margin width — styled to match the Colorbars extension.
 - In-extension **Help** and **Changelog** pages.
@@ -85,6 +86,7 @@ This is an early **proof of concept** (v0.6.0). See [ROADMAP.md](ROADMAP.md) for
 | `popup.html` / `popup.js` | Toolbar popup (per-page on/off, side, shortcuts) |
 | `options.html` / `options.js` | Settings page |
 | `pages.html` / `pages.js` | All-notes page |
+| `export.js` | Pure note→Markdown/plaintext/CSV/HTML transforms (used by the All-notes page) |
 | `help.html` / `help.js` | Help page |
 | `changelog.html` / `changelog.js` / `changelog.json` | Changelog page + data |
 | `options.css` | Shared styling for all extension pages |
