@@ -9,7 +9,57 @@ chrome.runtime.onInstalled.addListener(() => {
       chrome.storage.sync.set({ [SETTINGS_KEY]: { ...DEFAULT_SETTINGS } });
     }
   });
+  refreshMenus();
 });
+
+if (chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(refreshMenus);
+
+/* ------------------------------------------------------- Context menus */
+// Rebuilt whenever the setting changes so the items appear/disappear silently.
+function refreshMenus() {
+  chrome.contextMenus.removeAll(() => {
+    void chrome.runtime.lastError; // ignore "no menus" on first run
+    getSettings().then((s) => {
+      if (!s.addContextMenu) return;
+      chrome.contextMenus.create({
+        id: "sn-add-selection",
+        title: "Add SideNote to selection",
+        contexts: ["selection"]
+      });
+      chrome.contextMenus.create({
+        id: "sn-add-element",
+        title: "Link SideNote to this element",
+        contexts: ["image", "link", "video", "audio", "page"]
+      });
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (!tab || !tab.id) return;
+  const type =
+    info.menuItemId === "sn-add-selection"
+      ? "sn-add-selection"
+      : info.menuItemId === "sn-add-element"
+      ? "sn-add-element"
+      : null;
+  if (type) chrome.tabs.sendMessage(tab.id, { type }).catch(() => {});
+});
+
+/* -------------------------------------------------------- Keyboard cmd */
+if (chrome.commands) {
+  chrome.commands.onCommand.addListener(async (command) => {
+    if (command !== "add-note") return;
+    const s = await getSettings();
+    if (!s.shortcutEnabled) return;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id) chrome.tabs.sendMessage(tab.id, { type: "sn-add-selection" }).catch(() => {});
+    } catch (_) {
+      /* no active tab */
+    }
+  });
+}
 
 async function updateBadge(tabId, url) {
   if (!tabId || !url) return;
@@ -48,6 +98,7 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes[PAGES_KEY]) refreshActiveTab();
+  if (area === "sync" && changes[SETTINGS_KEY]) refreshMenus();
 });
 
 // Content script asks the worker to open an extension page in its own tab

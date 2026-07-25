@@ -21,7 +21,12 @@ const DEFAULT_SETTINGS = {
   masterEnabled: true,
   defaultSides: "right",
   highlightColor: "#ffe066",
-  marginWidth: 320
+  marginWidth: 320,
+  // How notes get added. At least one of addSelectionButton / addContextMenu
+  // must stay on (enforced in normalizeSettings).
+  addSelectionButton: true, // the floating "Add note" button on text selection
+  addContextMenu: true, // the right-click menu items
+  shortcutEnabled: true // the keyboard command (rebindable at chrome://extensions/shortcuts)
 };
 
 const ACCENT = "#1a73e8";
@@ -41,7 +46,12 @@ function normalizeSettings(raw) {
     }
     const w = Number(raw.marginWidth);
     if (Number.isFinite(w)) s.marginWidth = Math.min(Math.max(Math.round(w), 240), 520);
+    if (typeof raw.addSelectionButton === "boolean") s.addSelectionButton = raw.addSelectionButton;
+    if (typeof raw.addContextMenu === "boolean") s.addContextMenu = raw.addContextMenu;
+    if (typeof raw.shortcutEnabled === "boolean") s.shortcutEnabled = raw.shortcutEnabled;
   }
+  // Keep at least one primary add-method enabled.
+  if (!s.addSelectionButton && !s.addContextMenu) s.addSelectionButton = true;
   return s;
 }
 

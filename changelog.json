@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.4.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Link a note to any element — a button, image, or link — from the right-click menu. The element is marked with a pin and outline instead of a text highlight.",
+          "Right-click “Add SideNote to selection” to add a note without the floating button.",
+          "Keyboard shortcut (Alt+Shift+N by default) to add a note from the selected text; rebind it at chrome://extensions/shortcuts.",
+          "Settings to turn the selection button, right-click menu, and keyboard shortcut on or off — at least one of the selection button or right-click menu always stays on."
+        ]
+      },
+      {
+        "label": "Fixed",
+        "items": [
+          "Newly highlighted text now appears immediately instead of only after reloading the page."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.3.0",
     "sections": [
       {

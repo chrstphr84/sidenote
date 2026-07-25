@@ -62,6 +62,20 @@ Two supporting refactors ride along:
 - "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
 - "Page no longer exists" (404): lazy "unreachable" status on the All-notes page; note snippets already give value without the live page.
 
+### Cross-cutting — Play nicely with a top-docked bar (e.g. Colorbars)
+Feasible and silent. Another extension of ours, **Colorbars**, overlays a fixed bar
+at the top of the page (`#__domain_top_bar__`, `top:0`) that can obscure the top of
+SideNote's margin panel (title + badge). Because content scripts share the DOM (even
+across extensions/isolated worlds), SideNote can:
+- Measure the bar's height directly from the DOM and apply it as a **top inset** to the
+  fixed panels (and the FAB's vertical range).
+- React to changes with a `MutationObserver` (bar added/removed) + `ResizeObserver`
+  (height/setting changes) — including Colorbars being disabled (element vanishes →
+  inset returns to 0).
+- Generalize to "any top-docked fixed bar" so it degrades gracefully for other tools.
+No coupling to Colorbars' storage or code; the user never sees that SideNote is aware
+of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
+
 ## Status of the original wishlist
 
 | Idea | Phase | Status entering Phase 0 |
@@ -70,10 +84,10 @@ Two supporting refactors ride along:
 | Hover note → emphasize target | 0 | Partial (CSS hooks; wiring pending) |
 | Resolved notes strikethrough + delete from margin | 0 | Partial (resolve + delete exist; restyle pending) |
 | Error handling: page changed | X-cutting | Baseline (orphan flagging) |
-| Link directly to elements | 1 | New (needs anchor union) |
+| Link directly to elements | 1 | Done (v0.4.0) |
 | Highlight/select/draw palette | 3 | New (needs overlay) |
-| Contextual menu add | 1 | New |
-| User keyboard shortcut | 1 | New |
+| Contextual menu add | 1 | Done (v0.4.0) |
+| User keyboard shortcut | 1 | Done (v0.4.0) |
 | Move / hide the margin tab | 2 | New |
 | Exports (MD/CSV/plaintext/PDF/Google) | 4 | New |
 | Error handling: page 404 | X-cutting | New |

@@ -2,9 +2,15 @@
   "manifest_version": 3,
   "name": "SideNote",
   "description": "Margin comments linked to page highlights — like Google Docs, for any web page.",
-  "version": "0.3.0",
-  "permissions": ["storage", "tabs"],
+  "version": "0.4.0",
+  "permissions": ["storage", "tabs", "contextMenus"],
   "host_permissions": ["<all_urls>"],
+  "commands": {
+    "add-note": {
+      "suggested_key": { "default": "Alt+Shift+N" },
+      "description": "SideNote: add a note from the selected text"
+    }
+  },
   "action": {
     "default_title": "SideNote",
     "default_popup": "popup.html",

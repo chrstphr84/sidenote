@@ -101,12 +101,13 @@
     // clean text nodes (e.g. they land on element edges).
     if (startG == null || endG == null || endG <= startG) {
       const found = map.text.indexOf(exact);
-      if (found === -1) return { exact, prefix: "", suffix: "", index: 0 };
+      if (found === -1) return { type: "text", exact, prefix: "", suffix: "", index: 0 };
       startG = found;
       endG = found + exact.length;
     }
 
     return {
+      type: "text",
       exact,
       prefix: map.text.slice(Math.max(0, startG - 40), startG),
       suffix: map.text.slice(endG, endG + 40),
@@ -403,7 +404,7 @@
     clearOverlay();
     const orphaned = new Set();
     renderList().forEach((c) => {
-      const type = c.anchor.type;
+      const type = c.anchor.type || "text";
       if (type === "text") {
         const range = findRange(c.anchor);
         if (!range) return orphaned.add(c.id);
@@ -598,7 +599,7 @@
   // and drawing notes.
   function anchorHeadHtml(c) {
     const a = c.anchor;
-    if (a.type === "text") {
+    if ((a.type || "text") === "text") {
       const quote = esc(a.exact.length > 140 ? a.exact.slice(0, 140) + "…" : a.exact);
       return `<blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>`;
     }
@@ -1014,7 +1015,7 @@
   let pendingRect = null;
 
   function onSelectionChange() {
-    if (!active) return;
+    if (!active || !settings.addSelectionButton) return;
     // Debounce with rAF so we read a settled selection.
     requestAnimationFrame(() => {
       const sel = window.getSelection();
@@ -1066,9 +1067,39 @@
     createNote(anchor);
   }
 
-  // The single note-creation pipeline. Every trigger (the selection button now,
-  // and the context menu / keyboard / drawing tools in later phases) funnels
-  // through here: it opens a draft card in edit mode on the appropriate side.
+  // Build an element anchor from a right-clicked element (no highlight; a pin).
+  function anchorFromElement(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return null;
+    if (el.id === HOST_ID || (el.closest && el.closest(`#${HOST_ID}`))) return null;
+    if (el === document.body || el === document.documentElement) return null;
+    return { type: "element", target: buildTarget(el) };
+  }
+
+  // Entry point shared by the context menu and keyboard command. When the page
+  // isn't active yet, enable it first and create the note once it mounts.
+  let pendingAction = null;
+  function requestCreate(makeAnchor) {
+    const run = () => {
+      const anchor = makeAnchor();
+      if (!anchor) {
+        if (shadow) showToast("Nothing to attach a note to — select text or right-click an element.");
+        return;
+      }
+      createNote(anchor);
+    };
+    if (active) {
+      run();
+      return;
+    }
+    pendingAction = run;
+    mutatePage((e) => {
+      e.enabled = true;
+    });
+  }
+
+  // The single note-creation pipeline. Every trigger (the selection button, the
+  // context menu, the keyboard command, and the drawing tools in a later phase)
+  // funnels through here: it opens a draft card in edit mode on the right side.
   function createNote(anchor, opts) {
     if (!active) return;
     const o = opts || {};
@@ -1130,6 +1161,7 @@
     }
     if (!active && wasActive) {
       unwrapAll();
+      clearOverlay();
       const html = document.documentElement;
       if (html) {
         html.style.removeProperty("margin-left");
@@ -1139,6 +1171,13 @@
       return;
     }
     if (active) render();
+    // A context-menu/keyboard add on an inactive page enabled it above; run the
+    // queued creation now that the UI is mounted.
+    if (active && pendingAction) {
+      const p = pendingAction;
+      pendingAction = null;
+      p();
+    }
   }
 
   async function reload() {
@@ -1190,12 +1229,21 @@
     if (active && settings.theme === "auto") render();
   });
 
+  // Remember the element under the last right-click so the context-menu handler
+  // can link a note to it (contextMenus doesn't hand us the DOM node).
+  let lastCtxEl = null;
+  document.addEventListener("contextmenu", (e) => { lastCtxEl = e.target; }, true);
+
   chrome.runtime.onMessage.addListener((msg) => {
     if (!msg || !msg.type) return;
     if (msg.type === "sn-open") {
       if (!active) return;
       sidesInUse().forEach((side) => (open[side] = true));
       render();
+    } else if (msg.type === "sn-add-selection") {
+      requestCreate(() => anchorFromSelection());
+    } else if (msg.type === "sn-add-element") {
+      requestCreate(() => anchorFromElement(lastCtxEl));
     }
   });
 

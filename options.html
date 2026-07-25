@@ -69,6 +69,37 @@
       </section>
 
       <section class="card">
+        <h2>Adding notes</h2>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Selection button</div>
+            <div class="field-sub">Show an “Add note” button when you select text</div>
+          </div>
+          <input id="add-selection" class="switch" type="checkbox" />
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Right-click menu</div>
+            <div class="field-sub">Add from the context menu (also links buttons &amp; images)</div>
+          </div>
+          <input id="add-context" class="switch" type="checkbox" />
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Keyboard shortcut</div>
+            <div class="field-sub">Add from the selection; rebind it in Chrome</div>
+          </div>
+          <div class="row" style="gap: 10px">
+            <button id="shortcut-btn" type="button" class="secondary">Change shortcut</button>
+            <input id="shortcut-enabled" class="switch" type="checkbox" />
+          </div>
+        </div>
+        <p class="field-sub" id="add-methods-hint" style="padding-top: 8px">
+          At least one of the selection button or right-click menu stays on.
+        </p>
+      </section>
+
+      <section class="card">
         <h2>Notes</h2>
         <div class="field">
           <div class="field-text">

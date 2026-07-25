@@ -12,6 +12,10 @@ const els = {
   sides: document.getElementById("sides"),
   color: document.getElementById("color"),
   width: document.getElementById("width"),
+  addSelection: document.getElementById("add-selection"),
+  addContext: document.getElementById("add-context"),
+  shortcutEnabled: document.getElementById("shortcut-enabled"),
+  shortcutBtn: document.getElementById("shortcut-btn"),
   pagesSummary: document.getElementById("pages-summary"),
   openPages: document.getElementById("open-pages"),
   version: document.getElementById("ext-version"),
@@ -45,6 +49,9 @@ function render() {
   markSegment(els.sides, "side", settings.defaultSides);
   els.color.value = settings.highlightColor;
   els.width.value = settings.marginWidth;
+  els.addSelection.checked = settings.addSelectionButton;
+  els.addContext.checked = settings.addContextMenu;
+  els.shortcutEnabled.checked = settings.shortcutEnabled;
   applyTheme();
 }
 
@@ -89,6 +96,33 @@ els.width.addEventListener("change", () => {
   settings = normalizeSettings(settings);
   render();
   save();
+});
+
+// The selection button and right-click menu can't both be off.
+function updateAddMethod(which, value) {
+  if (!value && which === "addSelectionButton" && !settings.addContextMenu) {
+    toast("Keep at least one add method on");
+    render();
+    return;
+  }
+  if (!value && which === "addContextMenu" && !settings.addSelectionButton) {
+    toast("Keep at least one add method on");
+    render();
+    return;
+  }
+  settings[which] = value;
+  render();
+  save();
+}
+
+els.addSelection.addEventListener("change", () => updateAddMethod("addSelectionButton", els.addSelection.checked));
+els.addContext.addEventListener("change", () => updateAddMethod("addContextMenu", els.addContext.checked));
+els.shortcutEnabled.addEventListener("change", () => {
+  settings.shortcutEnabled = els.shortcutEnabled.checked;
+  save();
+});
+els.shortcutBtn.addEventListener("click", () => {
+  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
 });
 
 els.openPages.addEventListener("click", () => {

@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.4.0]
+
+### Added
+- Link a note to any element — a button, image, or link — from the right-click menu. The element is marked with a pin and outline instead of a text highlight.
+- Right-click “Add SideNote to selection” to add a note without the floating button.
+- Keyboard shortcut (Alt+Shift+N by default) to add a note from the selected text; rebind it at chrome://extensions/shortcuts.
+- Settings to turn the selection button, right-click menu, and keyboard shortcut on or off — at least one of the selection button or right-click menu always stays on.
+
+### Fixed
+- Newly highlighted text now appears immediately instead of only after reloading the page.
+
 ## [0.3.0]
 
 ### Added
@@ -44,6 +55,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.4.0]: #040
 [0.3.0]: #030
 [0.2.1]: #021
 [0.2.0]: #020

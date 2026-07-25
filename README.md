@@ -5,14 +5,19 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.3.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.4.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
 - Attach a comment to any text selection; the text is highlighted on the page and
   the comment appears in a side margin, linked to that highlight.
-- **Hover a note to see where it's linked** — its highlight is emphasized on the page,
-  and hovering the highlight emphasizes its note.
+- **Link a note to any element** (button, image, link) from the right-click menu — the
+  element is marked with a pin, no highlight needed.
+- **Three ways to add a note**, each toggleable in Settings (one always stays on): the
+  floating selection button, the right-click menu, and a rebindable keyboard shortcut
+  (`Alt+Shift+N`).
+- **Hover a note to see where it's linked** — its highlight or pin is emphasized on the
+  page, and hovering the target emphasizes its note.
 - **Threaded replies** on any note; edit or delete individual replies.
 - **Per-note highlight color** — pick from a palette on each note, and the on-page
   highlight updates to match.
