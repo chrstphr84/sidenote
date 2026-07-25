@@ -15,7 +15,8 @@ This is an early **proof of concept** (v0.2.0).
 - **Per-note highlight color** — pick from a palette on each note, and the on-page
   highlight updates to match.
 - **Single-page-app aware**: when a site swaps the page without a full reload, SideNote
-  re-keys to the new page's notes automatically.
+  re-keys to the new page's notes automatically (via the Navigation API, falling back to
+  polling on older Chrome).
 - Click a highlight to jump to its note, and a note's quote to scroll back to the text.
 - Margin can sit on the **Left**, **Right**, or **Both** sides — a default in
   Settings, overridable per page from the popup.
@@ -90,5 +91,6 @@ This is an early **proof of concept** (v0.2.0).
 
 - Re-anchoring is text-based; heavily dynamic pages may fail to relocate a highlight
   (the note is preserved and flagged).
-- Single-page-app navigations that swap content without a full reload aren't tracked yet.
+- Single-page-app navigation is detected via the Navigation API (with a polling fallback);
+  routes that reuse the same URL for different content still can't be told apart.
 - Notes are stored locally and are not synced across devices.

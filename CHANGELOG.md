@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.2.1]
+
+### Changed
+- Single-page-app navigation is now detected with the Navigation API (event-driven) instead of polling, with a popstate + poll fallback on older Chrome.
+
 ## [0.2.0]
 
 ### Added
@@ -30,5 +35,6 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.2.1]: #021
 [0.2.0]: #020
 [0.1.0]: #010

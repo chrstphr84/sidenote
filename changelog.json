@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.2.1",
+    "sections": [
+      {
+        "label": "Changed",
+        "items": [
+          "Single-page-app navigation is now detected with the Navigation API (event-driven) instead of polling, with a popstate + poll fallback on older Chrome."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.2.0",
     "sections": [
       {

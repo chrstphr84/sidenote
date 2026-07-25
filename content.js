@@ -913,9 +913,8 @@
     }
   });
 
-  // Single-page-app navigation: the URL can change without a reload. Detect it
-  // (popstate + a light poll, since the page's pushState calls aren't visible
-  // from the content script's world) and re-key to the new page's notes.
+  // Single-page-app navigation: the URL can change without a reload, so re-key
+  // to the new page's notes when it does.
   let lastHref = location.href;
   function onLocationMaybeChanged() {
     if (location.href === lastHref) return;
@@ -943,9 +942,21 @@
       }, 350);
     });
   }
-  window.addEventListener("popstate", onLocationMaybeChanged);
-  window.addEventListener("hashchange", onLocationMaybeChanged);
-  setInterval(onLocationMaybeChanged, 700);
+
+  // Prefer the Navigation API: its "navigatesuccess" fires (after the URL has
+  // committed) for same-document pushState/replaceState navigations — which
+  // popstate misses — as well as history traversals. It's observable from the
+  // content script's isolated world, unlike patching history.pushState. Older
+  // Chrome without the Navigation API falls back to popstate + a light poll.
+  if (window.navigation && typeof window.navigation.addEventListener === "function") {
+    window.navigation.addEventListener("navigatesuccess", onLocationMaybeChanged);
+    // hashchange still comes through window; keep it for hash-only URL edits.
+    window.addEventListener("hashchange", onLocationMaybeChanged);
+  } else {
+    window.addEventListener("popstate", onLocationMaybeChanged);
+    window.addEventListener("hashchange", onLocationMaybeChanged);
+    setInterval(onLocationMaybeChanged, 700);
+  }
 
   reload();
 
