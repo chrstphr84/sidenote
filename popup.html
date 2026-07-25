@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>SideNote</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body class="popup">
+    <main class="popup-main">
+      <div class="popup-head">
+        <h1 class="brand-title"><span class="brand-mark">▎</span> SideNote</h1>
+      </div>
+
+      <div class="popup-row">
+        <div class="popup-text">
+          <div class="popup-label">All pages</div>
+          <div class="popup-sub">Master switch for SideNote</div>
+        </div>
+        <input id="pp-master" class="switch" type="checkbox" />
+      </div>
+
+      <div class="popup-row" id="pp-page-row">
+        <div class="popup-text">
+          <div class="popup-label">This page</div>
+          <div class="popup-sub" id="pp-page-sub">—</div>
+        </div>
+        <input id="pp-page" class="switch" type="checkbox" />
+      </div>
+
+      <div class="popup-row column" id="pp-sides-row">
+        <div class="popup-text">
+          <div class="popup-label">Margin side</div>
+          <div class="popup-sub">Where notes appear on this page</div>
+        </div>
+        <div class="segmented" id="pp-sides">
+          <button type="button" data-side="left">Left</button>
+          <button type="button" data-side="right">Right</button>
+          <button type="button" data-side="both">Both</button>
+        </div>
+      </div>
+
+      <button id="pp-open" type="button" class="full">Open notes on this page</button>
+      <button id="pp-all" type="button" class="secondary full">All notes</button>
+      <button id="pp-settings" type="button" class="secondary full">Settings</button>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

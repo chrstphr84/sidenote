@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>SideNote Help</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="row row-between row-wrap">
+        <div>
+          <h1 class="brand-title"><span class="brand-mark">▎</span> SideNote Help</h1>
+          <p class="intro">How notes, highlights, and the margin work.</p>
+        </div>
+        <button class="secondary" type="button" id="back-btn">Back</button>
+      </div>
+
+      <section class="card">
+        <h2>Overview</h2>
+        <p class="intro">
+          SideNote lets you attach comments to highlighted text on any web page, shown in a margin
+          beside the page — like comments in Google Docs. Notes are saved locally and reappear when
+          you return to the page, even after closing the tab.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Turning it on</h2>
+        <ul>
+          <li>Click the SideNote toolbar icon to open the popup.</li>
+          <li><strong>All pages</strong> is the master switch.</li>
+          <li><strong>This page</strong> turns SideNote on or off for the current page.</li>
+          <li>Pages that already have notes turn on automatically when you visit them.</li>
+          <li>The toolbar icon shows a badge with the number of open notes on the current page.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Adding a note</h2>
+        <ul>
+          <li>Select text on the page. An <strong>Add note</strong> button appears next to the selection.</li>
+          <li>Click it — the text is highlighted and a card opens in the margin. Type your note and <strong>Save</strong>.</li>
+          <li>Click a highlight to jump to its note; click a note's quote to scroll back to the highlighted text.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>The margin</h2>
+        <ul>
+          <li>The margin can sit on the <strong>Left</strong>, <strong>Right</strong>, or <strong>Both</strong> sides — set the default in Settings, or per page from the popup.</li>
+          <li>Open and close the margin with the tab on the edge of the page; closing it never deletes notes.</li>
+          <li>With both margins shown, use a note's <strong>⇄</strong> button to move it to the other side.</li>
+          <li>Each note can be <strong>edited</strong>, <strong>resolved</strong> (✓), or <strong>deleted</strong> (🗑).</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Highlights that move</h2>
+        <ul>
+          <li>SideNote remembers the highlighted text along with the words around it, so it can re-find the spot after a reload.</li>
+          <li>If the page changes so the text no longer exists, the note is kept and flagged <em>not found on page</em> in the margin.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>All notes</h2>
+        <ul>
+          <li>The <strong>All notes</strong> page (from the popup or Settings) lists every page you've commented on, in its own tab.</li>
+          <li>Open a page by its link, or remove pages individually, by selection, or all at once.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Theme</h2>
+        <ul>
+          <li>Light, Dark, and Auto themes are supported. Auto follows your operating system and updates live.</li>
+          <li>The theme applies to the popup, margin, and all extension pages.</li>
+        </ul>
+      </section>
+
+      <section class="card help-section">
+        <a class="changelog-link" href="changelog.html">Changelog</a>
+        <span class="version-line" id="ext-version">SideNote</span>
+      </section>
+    </main>
+    <script src="shared.js"></script>
+    <script src="help.js"></script>
+  </body>
+</html>

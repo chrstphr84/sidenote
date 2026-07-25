@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>SideNote — All notes</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="row row-between row-wrap">
+        <div>
+          <h1 class="brand-title"><span class="brand-mark">▎</span> All notes</h1>
+          <p class="intro">Every page you've added notes to.</p>
+        </div>
+        <button class="secondary" type="button" id="settings-btn">Settings</button>
+      </div>
+
+      <div class="pages-toolbar" id="toolbar" hidden>
+        <label class="row" style="gap: 8px">
+          <input type="checkbox" id="select-all" style="width: 16px; height: 16px; accent-color: var(--accent)" />
+          Select all
+        </label>
+        <span class="spacer"></span>
+        <button class="danger" type="button" id="remove-selected" disabled>Remove selected</button>
+        <button class="danger" type="button" id="clear-all">Clear all</button>
+      </div>
+
+      <div id="list"></div>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="shared.js"></script>
+    <script src="pages.js"></script>
+  </body>
+</html>

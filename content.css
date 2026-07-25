@@ -1,0 +1,40 @@
+/* Styles for the highlight spans SideNote wraps around commented text. These
+   live in the page's own DOM (unlike the sidebar, which is isolated in a shadow
+   root), so every rule is defensive: high specificity and !important so page
+   CSS can't wash out the highlight. The colour itself is set inline per span. */
+
+.__sidenote_hl {
+  border-radius: 2px !important;
+  padding: 0.05em 0 !important;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0) !important;
+  cursor: pointer !important;
+  transition: box-shadow 0.12s ease, filter 0.12s ease !important;
+  color: inherit !important;
+}
+
+.__sidenote_hl:hover,
+.__sidenote_hl.__sidenote_hl_active {
+  filter: brightness(0.94) !important;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.55) !important;
+}
+
+.__sidenote_hl.__sidenote_hl_flash {
+  animation: __sidenote_flash 1s ease !important;
+}
+
+.__sidenote_hl.__sidenote_hl_resolved {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  text-decoration: underline dotted rgba(128, 134, 139, 0.9) !important;
+  text-underline-offset: 3px !important;
+}
+
+@keyframes __sidenote_flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0) !important;
+  }
+  30% {
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.85) !important;
+  }
+}

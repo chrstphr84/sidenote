@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>SideNote Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="container">
+      <div class="row row-between row-wrap">
+        <div>
+          <h1 class="brand-title"><span class="brand-mark">▎</span> SideNote Settings</h1>
+          <p class="intro">Margin comments linked to page highlights.</p>
+        </div>
+        <a class="changelog-link" href="help.html" style="font-size: 14px">Help</a>
+      </div>
+
+      <section class="card">
+        <h2>General</h2>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Enable SideNote</div>
+            <div class="field-sub">Master switch across every page</div>
+          </div>
+          <input id="master" class="switch" type="checkbox" />
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Theme</div>
+            <div class="field-sub">Auto follows your operating system</div>
+          </div>
+          <div class="segmented" id="theme">
+            <button type="button" data-theme="auto">Auto</button>
+            <button type="button" data-theme="light">Light</button>
+            <button type="button" data-theme="dark">Dark</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Defaults for new pages</h2>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Margin side</div>
+            <div class="field-sub">Which margin new notes open in</div>
+          </div>
+          <div class="segmented" id="sides">
+            <button type="button" data-side="left">Left</button>
+            <button type="button" data-side="right">Right</button>
+            <button type="button" data-side="both">Both</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Highlight color</div>
+            <div class="field-sub">Color used to mark commented text</div>
+          </div>
+          <input id="color" type="color" />
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Margin width</div>
+            <div class="field-sub">Panel width in pixels (240–520)</div>
+          </div>
+          <input id="width" type="number" min="240" max="520" step="10" style="width: 90px" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Notes</h2>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Commented pages</div>
+            <div class="field-sub" id="pages-summary">—</div>
+          </div>
+          <button id="open-pages" type="button" class="secondary">All notes</button>
+        </div>
+      </section>
+
+      <section class="card help-section">
+        <a class="changelog-link" href="changelog.html">Changelog</a>
+        <span class="version-line" id="ext-version">SideNote</span>
+      </section>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
