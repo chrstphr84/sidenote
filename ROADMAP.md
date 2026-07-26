@@ -69,17 +69,17 @@ Two supporting refactors ride along:
   `activeTab`/`<all_urls>`) and/or the region overlay; investigate resolution + which
   export formats can embed images (HTML/Doc/PDF can; Markdown via data URI; CSV can't).
 
-### Phase 5 — Drawing palette polish (follow-up to Phase 3)
-- **Dismiss reliability** — investigate a reported case where the palette gets stuck and
-  can't be dismissed (no firm repro yet); make the close affordance bullet-proof.
-- **Palette entry point near the top** — move the "Draw" trigger from the margin footer
-  toward the top of the panel (and/or a persistent handle) so it's easier to reach.
-- **Undo** — an undo action for the last drawing/stroke (and ideally note actions).
-- **Standard undo key** — hook Cmd/Ctrl+Z when SideNote has focus / a drawing was just
-  made (nice-to-have; may conflict with the page — scope carefully).
-- **Select a piece of a drawing to delete** — click an individual shape within a
-  multi-shape drawing and remove just that shape (the overlay already tags shapes with
-  the note id; extend to per-shape hit-testing + removal).
+### Phase 5 — Drawing palette polish — DONE (v0.10.0)
+- **Dismiss reliability** — DONE. A clear Done button + progressive Esc (cancel stroke →
+  disarm tool → close), and closePalette now tears down any in-progress stroke/listeners
+  so it can't get stuck. (No firm repro of the original bug, but the teardown is hardened.)
+- **Palette entry point near the top** — DONE. The Draw trigger moved to the panel header.
+- **Undo** — DONE. Undo stack for add/delete, with a ↶ button in the palette.
+- **Standard undo key** — DONE. Cmd/Ctrl+Z, ignored while typing in a field.
+- **Select a piece to delete** — DONE. Click a drawing/pin to select it (highlight +
+  floating Delete button, or the Delete key). Each drawing is its own note, so this
+  removes exactly that piece; undo restores it. (Multi-shape single notes remain a future
+  option if we ever group shapes into one note.)
 
 ### Element linking precision — DONE (v0.9.0)
 - Custom controls (e.g. an SVG-drawn checkbox) now climb to the nearest control/label on
@@ -124,5 +124,5 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Move / hide the margin tab | 2 | Done (v0.5.0) |
 | Exports (MD/CSV/plaintext/PDF/Google) | 4 | MD/CSV/txt/PDF done (v0.7.0); Google implemented (v0.8.0, pending live verify) |
 | Screenshot in export | 4+ | New |
-| Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | New |
+| Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | New |

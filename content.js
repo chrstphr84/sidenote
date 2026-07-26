@@ -36,6 +36,8 @@
   let paletteOpen = false; // the drawing tool palette is shown
   let drawTool = null; // "rect" | "ellipse" | "line" | "arrow" | "freehand" | null
   let drawing = null; // in-progress stroke: { kind, points: [{x,y}] } in viewport coords
+  const undoStack = []; // recent reversible actions: { kind:"add", id } | { kind:"remove", comment }
+  let selectedNoteId = null; // an on-page drawing/pin selected for deletion
 
   let hostEl = null;
   let shadow = null;
@@ -393,6 +395,10 @@
         (comment.anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin));
       }
     });
+    // Re-apply the on-page selection emphasis after a redraw (scroll/resize).
+    if (selectedNoteId) {
+      svg.querySelectorAll(`[data-sidenote-id="${cssEscape(selectedNoteId)}"]`).forEach((n) => n.classList.add("sn-ov-selected"));
+    }
   }
 
   function drawShape(svg, comment, shape, origin) {
@@ -461,10 +467,12 @@
       (c) =>
         `<button class="sn-ink${c.toLowerCase() === drawColor().toLowerCase() ? " sel" : ""}" style="background:${c}" data-drawcolor="${c}" title="${c}"></button>`
     ).join("");
+    const canUndo = undoStack.length > 0 || Boolean(draft);
     bar.innerHTML =
       `<div class="sn-tools">${tools}</div>` +
       `<div class="sn-inks">${swatches}</div>` +
-      `<button class="sn-tool sn-palette-close" data-tool="__close" title="Close">✕</button>`;
+      `<button class="sn-tool sn-palette-undo" data-tool="__undo" title="Undo (⌘Z / Ctrl+Z)"${canUndo ? "" : " disabled"}>↶</button>` +
+      `<button class="sn-palette-done" data-tool="__done" title="Close the palette (Esc)">Done</button>`;
   }
 
   function openPalette() {
@@ -473,10 +481,21 @@
     renderPalette();
   }
 
+  // Fully tear down the drawing UI: any in-progress stroke, the armed tool, and
+  // the capture layer — so the palette can always be dismissed cleanly.
   function closePalette() {
+    endStroke();
     paletteOpen = false;
-    setTool(null);
+    drawTool = null;
+    if (shadow) shadow.getElementById("sn-draw-capture").hidden = true;
     renderPalette();
+  }
+
+  function endStroke() {
+    document.removeEventListener("mousemove", onDrawMove, true);
+    document.removeEventListener("mouseup", onDrawEnd, true);
+    drawing = null;
+    clearPreview();
   }
 
   function setTool(tool) {
@@ -497,7 +516,8 @@
       return;
     }
     const tool = btn.dataset.tool;
-    if (tool === "__close") closePalette();
+    if (tool === "__done" || tool === "__close") closePalette();
+    else if (tool === "__undo") undo();
     else setTool(tool);
   }
 
@@ -676,6 +696,9 @@
       <div id="sn-palette" class="sn-palette-bar" hidden></div>
       <div id="sn-chrome"></div>
       <button id="sn-add" class="sn-add" type="button" hidden>💬 Add note</button>
+      <div id="sn-shape-menu" class="sn-shape-menu" hidden>
+        <button class="sn-shape-del" type="button" title="Delete (Del)">🗑 Delete</button>
+      </div>
       <div id="sn-toast" class="sn-toast" hidden></div>`;
     (document.documentElement || document.body).appendChild(hostEl);
 
@@ -704,11 +727,13 @@
     watchTopBar();
     applyTopInset();
 
-    // Overlay pins/outlines/shapes: click → focus card, hover → emphasize card.
+    // Overlay pins/outlines/shapes: click → select (for deletion) + focus card.
     const svg = shadow.getElementById("sn-overlay");
     svg.addEventListener("click", (e) => {
       const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
-      if (id) focusCard(id);
+      if (!id) return;
+      selectShape(id, e.clientX, e.clientY);
+      focusCard(id);
     });
     svg.addEventListener("mouseover", (e) => {
       const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
@@ -718,6 +743,35 @@
       const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
       if (id) emphasizeCard(id, false);
     });
+
+    // Floating delete for the selected drawing/pin.
+    shadow.getElementById("sn-shape-menu").addEventListener("click", () => {
+      const id = selectedNoteId;
+      selectShape(null);
+      if (id) deleteComment(id);
+    });
+  }
+
+  // Select an on-page drawing/pin so it can be deleted (Del key or the menu).
+  function selectShape(id, x, y) {
+    selectedNoteId = id || null;
+    const svg = overlayEl();
+    if (svg) {
+      svg.querySelectorAll(".sn-ov-selected").forEach((n) => n.classList.remove("sn-ov-selected"));
+      if (id) {
+        svg.querySelectorAll(`[data-sidenote-id="${cssEscape(id)}"]`).forEach((n) => n.classList.add("sn-ov-selected"));
+      }
+    }
+    const menu = shadow && shadow.getElementById("sn-shape-menu");
+    if (menu) {
+      if (id && typeof x === "number") {
+        menu.hidden = false;
+        menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 110, x + 8))}px`;
+        menu.style.top = `${Math.max(8, y + 12)}px`;
+      } else {
+        menu.hidden = true;
+      }
+    }
   }
 
   function removeHost() {
@@ -943,13 +997,13 @@
         <header class="sn-head">
           <div class="sn-brand"><span class="sn-brand-mark">▎</span> SideNote</div>
           <div class="sn-head-tools">
+            <button class="sn-icon${paletteOpen ? " sel" : ""}" title="Draw on page" data-action="draw">✎</button>
             <span class="sn-count">${list.filter((c) => !c.resolved).length}</span>
             <button class="sn-icon" title="Close panel" data-action="close" data-side="${side}">✕</button>
           </div>
         </header>
         <div class="sn-cards">${cards}</div>
         <footer class="sn-foot">
-          <button class="sn-link" data-action="draw">Draw</button>
           <button class="sn-link" data-action="all-notes">All notes</button>
           <button class="sn-link" data-action="settings">Settings</button>
         </footer>
@@ -1188,6 +1242,7 @@
       draft = null;
       editingId = null;
       comments.push(toSave); // optimistic; storage change will reconcile
+      pushUndo({ kind: "add", id: toSave.id });
       mutatePage((e) => {
         e.enabled = true;
         e.comments = (e.comments || []).filter((c) => c.id !== toSave.id).concat([toSave]);
@@ -1316,18 +1371,55 @@
     });
   }
 
-  function deleteComment(id) {
+  function deleteComment(id, skipUndo) {
     if (draft && draft.id === id) {
       draft = null;
       editingId = null;
       render();
       return;
     }
+    const removed = comments.find((c) => c.id === id);
+    if (removed && !skipUndo) pushUndo({ kind: "remove", comment: JSON.parse(JSON.stringify(removed)) });
     comments = comments.filter((c) => c.id !== id);
     if (editingId === id) editingId = null;
+    if (selectedNoteId === id) selectedNoteId = null;
     mutatePage((e) => {
       e.comments = (e.comments || []).filter((c) => c.id !== id);
     });
+  }
+
+  /* ------------------------------------------------------------- Undo */
+  function pushUndo(action) {
+    undoStack.push(action);
+    if (undoStack.length > 30) undoStack.shift();
+    if (paletteOpen) renderPalette();
+  }
+
+  function undo() {
+    // An unsaved draft (e.g. a shape just drawn, note not yet typed) → discard it.
+    if (draft) {
+      draft = null;
+      editingId = null;
+      render();
+      return;
+    }
+    const action = undoStack.pop();
+    if (!action) {
+      showToast("Nothing to undo");
+      return;
+    }
+    if (action.kind === "add") {
+      deleteComment(action.id, true);
+    } else if (action.kind === "remove" && action.comment) {
+      const c = action.comment;
+      comments = comments.filter((x) => x.id !== c.id).concat([c]);
+      open[panelSideFor(c)] = true;
+      mutatePage((e) => {
+        e.enabled = true;
+        e.comments = (e.comments || []).filter((x) => x.id !== c.id).concat([c]);
+      });
+    }
+    if (paletteOpen) renderPalette();
   }
 
   /* ----------------------------------------------- Selection → add */
@@ -1556,8 +1648,23 @@
     if (hl && active) emphasizeCard(hl.getAttribute("data-sidenote-id"), false);
   });
   window.addEventListener("scroll", hideAddButton, { passive: true });
-  // Keep pins/drawings aligned with their elements as the page scrolls/resizes.
-  window.addEventListener("scroll", scheduleOverlayRedraw, { passive: true });
+  // Keep pins/drawings aligned with their elements as the page scrolls/resizes;
+  // the floating delete menu would be mispositioned, so hide it (selection stays).
+  window.addEventListener(
+    "scroll",
+    () => {
+      scheduleOverlayRedraw();
+      const menu = shadow && shadow.getElementById("sn-shape-menu");
+      if (menu && !menu.hidden) menu.hidden = true;
+    },
+    { passive: true }
+  );
+  // Clicking the page (outside our UI) clears an on-page shape selection.
+  document.addEventListener("click", (e) => {
+    if (active && selectedNoteId && e.target !== hostEl && !(hostEl && hostEl.contains(e.target))) {
+      selectShape(null);
+    }
+  });
   window.addEventListener("resize", () => {
     scheduleOverlayRedraw();
     applyTopInset();
@@ -1609,20 +1716,46 @@
     }
   });
 
-  // Escape cancels an in-progress stroke, then the drawing palette.
+  function isEditableFocused() {
+    const editable = (el) =>
+      el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    const ae = document.activeElement;
+    if (editable(ae)) return true;
+    if (ae === hostEl && shadow && editable(shadow.activeElement)) return true;
+    return false;
+  }
+
   document.addEventListener(
     "keydown",
     (e) => {
-      if (e.key !== "Escape" || !active) return;
-      if (drawing) {
-        document.removeEventListener("mousemove", onDrawMove, true);
-        document.removeEventListener("mouseup", onDrawEnd, true);
-        drawing = null;
-        clearPreview();
-      } else if (drawTool) {
-        setTool(null);
-      } else if (paletteOpen) {
-        closePalette();
+      if (!active) return;
+
+      // Escape: cancel a stroke, then disarm the tool, then close the palette,
+      // then clear an on-page selection.
+      if (e.key === "Escape") {
+        if (drawing) endStroke();
+        else if (drawTool) setTool(null);
+        else if (paletteOpen) closePalette();
+        else if (selectedNoteId) selectShape(null);
+        return;
+      }
+
+      // Undo — Cmd/Ctrl+Z, unless the user is undoing text in a field.
+      if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        if (isEditableFocused()) return;
+        if (undoStack.length || draft) {
+          e.preventDefault();
+          undo();
+        }
+        return;
+      }
+
+      // Delete/Backspace removes an on-page-selected drawing or pin.
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedNoteId && !isEditableFocused()) {
+        e.preventDefault();
+        const id = selectedNoteId;
+        selectShape(null);
+        deleteComment(id);
       }
     },
     true
@@ -1713,13 +1846,33 @@
     }
     .sn-tool:hover { background: var(--surface-2); }
     .sn-tool.sel { background: var(--accent); color: var(--accent-contrast); }
-    .sn-palette-close { color: var(--text-secondary); }
+    .sn-tool[disabled] { opacity: 0.4; cursor: default; }
+    .sn-tool[disabled]:hover { background: transparent; }
+    .sn-palette-undo { color: var(--text-secondary); font-size: 16px; }
+    .sn-palette-done {
+      border: none; background: var(--accent); color: var(--accent-contrast);
+      border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 600;
+      cursor: pointer; margin-left: 4px;
+    }
+    .sn-palette-done:hover { filter: brightness(0.96); }
     .sn-ink {
       width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
       cursor: pointer; padding: 0;
     }
     .sn-ink:hover { transform: scale(1.12); }
     .sn-ink.sel { box-shadow: 0 0 0 2px var(--accent); }
+
+    /* Floating delete for a selected drawing/pin */
+    .sn-shape-menu {
+      position: fixed; z-index: 2147483647;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: var(--shadow); padding: 4px;
+    }
+    .sn-shape-del {
+      border: none; background: transparent; color: var(--danger);
+      cursor: pointer; font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 6px;
+    }
+    .sn-shape-del:hover { background: var(--surface-2); }
 
     .sn-panel {
       position: fixed; top: var(--sn-top-inset, 0px); bottom: 0; width: 320px;
@@ -1768,6 +1921,7 @@
     }
     .sn-overlay .sn-ov-pin, .sn-overlay .sn-ov-outline, .sn-overlay .sn-ov-shape { pointer-events: auto; cursor: pointer; }
     .sn-overlay .sn-ov-active, .sn-overlay .sn-ov-flash { filter: drop-shadow(0 0 3px var(--accent)); }
+    .sn-overlay .sn-ov-selected { filter: drop-shadow(0 0 4px var(--accent)); stroke-dasharray: 5 3; }
     .sn-overlay .sn-ov-flash { animation: sn-ov-flash 1s ease; }
     @keyframes sn-ov-flash { 0%,100% { opacity: 1; } 40% { opacity: 0.35; } }
 

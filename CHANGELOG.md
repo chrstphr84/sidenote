@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.10.0]
+
+### Added
+- Undo (⌘Z / Ctrl+Z, or the ↶ button in the drawing palette) for adding and deleting notes — undoing right after a drawing removes it.
+- Click a drawing or an element's pin on the page to select it, then delete just that piece with the floating Delete button or the Delete key.
+
+### Changed
+- Moved the Draw button to the top of the margin (the panel header).
+- The drawing palette is easier to dismiss: a clear Done button plus Esc (which first cancels an in-progress stroke, then disarms the tool, then closes the palette); hardened the teardown so it can't get stuck.
+
 ## [0.9.0]
 
 ### Added
@@ -94,6 +104,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.10.0]: #0100
 [0.9.0]: #090
 [0.8.0]: #080
 [0.7.0]: #070
