@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.8.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Export your notes straight into a Google Doc or Google Sheet from the All notes page.",
+          "Google export uses your own Google OAuth client — set the client ID (and copy the redirect URI) from Settings → Google export; SideNote only requests permission to create files it makes."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.7.0",
     "sections": [
       {

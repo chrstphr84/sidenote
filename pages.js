@@ -217,12 +217,46 @@ els.exportBtn.addEventListener("click", () => {
   }
   const fmt = els.exportFormat.value;
   const base = `sidenote-export-${stamp()}`;
-  if (fmt === "markdown") downloadFile(`${base}.md`, toMarkdown(subset), "text/markdown");
-  else if (fmt === "plaintext") downloadFile(`${base}.txt`, toPlaintext(subset), "text/plain");
-  else if (fmt === "csv") downloadFile(`${base}.csv`, toCsv(subset), "text/csv");
-  else if (fmt === "pdf") printHtml(toExportHtml(subset));
-  toast(fmt === "pdf" ? "Opening print view…" : "Exported");
+  if (fmt === "markdown") {
+    downloadFile(`${base}.md`, toMarkdown(subset), "text/markdown");
+    toast("Exported");
+  } else if (fmt === "plaintext") {
+    downloadFile(`${base}.txt`, toPlaintext(subset), "text/plain");
+    toast("Exported");
+  } else if (fmt === "csv") {
+    downloadFile(`${base}.csv`, toCsv(subset), "text/csv");
+    toast("Exported");
+  } else if (fmt === "pdf") {
+    printHtml(toExportHtml(subset));
+    toast("Opening print view…");
+  } else if (fmt === "gdoc" || fmt === "gsheet") {
+    exportToGoogle(fmt, subset, base);
+  }
 });
+
+async function exportToGoogle(fmt, subset, base) {
+  const s = await getSettings();
+  if (!s.googleClientId) {
+    toast("Add your Google client ID in Settings first");
+    return;
+  }
+  els.exportBtn.disabled = true;
+  toast("Connecting to Google…");
+  try {
+    const token = await getGoogleToken(s.googleClientId, true);
+    const file =
+      fmt === "gdoc"
+        ? await createGoogleDoc(token, base, toExportHtml(subset))
+        : await createGoogleSheet(token, base, toCsv(subset));
+    chrome.tabs.create({ url: googleFileLink(file, fmt) });
+    toast(fmt === "gdoc" ? "Created Google Doc" : "Created Google Sheet");
+  } catch (e) {
+    const msg = e && e.message ? e.message : "error";
+    toast(msg === "no-client-id" ? "Add your Google client ID in Settings" : `Google export failed (${msg})`);
+  } finally {
+    els.exportBtn.disabled = false;
+  }
+}
 
 /* ----------------------------------------------------------------- Load */
 async function load() {

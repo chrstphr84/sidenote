@@ -117,6 +117,48 @@
         </div>
       </section>
 
+      <section class="card">
+        <h2>Google export</h2>
+        <p class="intro" style="margin-bottom: 6px">
+          Export your notes straight into a Google Doc or Sheet. This uses your own Google
+          OAuth client — see the steps below.
+        </p>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">OAuth client ID</div>
+            <div class="field-sub">From Google Cloud → Credentials (a client ID isn't a secret)</div>
+          </div>
+          <input id="google-client-id" type="text" placeholder="…apps.googleusercontent.com" style="width: 280px; max-width: 50%" />
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Redirect URI</div>
+            <div class="field-sub">Add this under “Authorized redirect URIs” in Google Cloud</div>
+          </div>
+          <div class="row" style="gap: 8px">
+            <code id="redirect-uri" style="font-size: 12px; color: var(--text-secondary)">—</code>
+            <button id="copy-redirect" type="button" class="secondary">Copy</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Test connection</div>
+            <div class="field-sub">Authorize once and confirm it works</div>
+          </div>
+          <button id="google-test" type="button" class="secondary">Connect Google</button>
+        </div>
+        <details style="margin-top: 8px">
+          <summary style="cursor: pointer; color: var(--accent)">Setup steps</summary>
+          <ol class="intro" style="line-height: 1.6; margin-top: 8px">
+            <li>Google Cloud Console → create/select a project.</li>
+            <li>APIs &amp; Services → enable <strong>Google Drive API</strong>.</li>
+            <li>OAuth consent screen: External, add yourself as a Test user, add scope <code>drive.file</code>.</li>
+            <li>Credentials → Create OAuth client ID → <strong>Web application</strong> → add the Redirect URI above.</li>
+            <li>Paste the Client ID here, then use Export → Google Doc / Google Sheet.</li>
+          </ol>
+        </details>
+      </section>
+
       <section class="card help-section">
         <a class="changelog-link" href="changelog.html">Changelog</a>
         <span class="version-line" id="ext-version">SideNote</span>
@@ -124,6 +166,7 @@
     </main>
     <div id="toast" class="toast"></div>
     <script src="shared.js"></script>
+    <script src="google.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

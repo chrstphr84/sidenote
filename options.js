@@ -19,6 +19,10 @@ const els = {
   shortcutBtn: document.getElementById("shortcut-btn"),
   pagesSummary: document.getElementById("pages-summary"),
   openPages: document.getElementById("open-pages"),
+  googleClientId: document.getElementById("google-client-id"),
+  redirectUri: document.getElementById("redirect-uri"),
+  copyRedirect: document.getElementById("copy-redirect"),
+  googleTest: document.getElementById("google-test"),
   version: document.getElementById("ext-version"),
   toast: document.getElementById("toast")
 };
@@ -51,6 +55,7 @@ function render() {
   els.color.value = settings.highlightColor;
   els.width.value = settings.marginWidth;
   els.showTab.checked = settings.showTab;
+  els.googleClientId.value = settings.googleClientId || "";
   els.addSelection.checked = settings.addSelectionButton;
   els.addContext.checked = settings.addContextMenu;
   els.shortcutEnabled.checked = settings.shortcutEnabled;
@@ -134,6 +139,50 @@ els.shortcutBtn.addEventListener("click", () => {
 
 els.openPages.addEventListener("click", () => {
   chrome.tabs.create({ url: chrome.runtime.getURL("pages.html") });
+});
+
+/* ------------------------------------------------------- Google export */
+if (chrome.identity && chrome.identity.getRedirectURL) {
+  els.redirectUri.textContent = chrome.identity.getRedirectURL();
+}
+
+els.googleClientId.addEventListener("change", () => {
+  settings.googleClientId = els.googleClientId.value.trim();
+  settings = normalizeSettings(settings);
+  save();
+});
+
+els.copyRedirect.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(els.redirectUri.textContent);
+    toast("Redirect URI copied");
+  } catch (_) {
+    toast("Copy failed — select it manually");
+  }
+});
+
+els.googleTest.addEventListener("click", async () => {
+  const clientId = els.googleClientId.value.trim();
+  if (!clientId) {
+    toast("Enter your client ID first");
+    return;
+  }
+  settings.googleClientId = clientId;
+  await setSettings(settings);
+  els.googleTest.disabled = true;
+  els.googleTest.textContent = "Connecting…";
+  try {
+    clearGoogleToken();
+    await getGoogleToken(clientId, true);
+    toast("Connected to Google");
+    els.googleTest.textContent = "Connected ✓";
+  } catch (e) {
+    toast(`Connection failed (${e && e.message ? e.message : "error"})`);
+    els.googleTest.textContent = "Connect Google";
+  } finally {
+    els.googleTest.disabled = false;
+    setTimeout(() => (els.googleTest.textContent = "Connect Google"), 2500);
+  }
 });
 
 /* ----------------------------------------------------------------- Load */

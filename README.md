@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.7.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.8.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -46,7 +46,9 @@ This is an early **proof of concept** (v0.7.0). See [ROADMAP.md](ROADMAP.md) for
   **move to the other side**, and **delete**.
 - **All notes** page (its own tab) listing every commented page, with **remove single**,
   **remove selected**, and **clear all**.
-- **Export** all or selected pages as **Markdown, plain text, CSV, or PDF** (print view).
+- **Export** all or selected pages as **Markdown, plain text, CSV, PDF** (print view), or
+  straight into a **Google Doc / Google Sheet** (using your own Google OAuth client,
+  configured in Settings).
 - **Settings** page (its own tab) with Light / Dark / Auto theme, default margin side,
   highlight color, and margin width — styled to match the Colorbars extension.
 - In-extension **Help** and **Changelog** pages.
@@ -75,6 +77,20 @@ This is an early **proof of concept** (v0.7.0). See [ROADMAP.md](ROADMAP.md) for
   URL hash is ignored). Each note stores its text plus the surrounding context used to
   re-find the highlight on the next visit.
 
+## Google export setup
+
+Google Doc/Sheet export uses **your own** Google OAuth client (a client ID is not a
+secret, so nothing is committed here). One-time setup, from **Settings → Google export**:
+
+1. Reload the extension, open Settings, and copy the **Redirect URI** shown there.
+2. In [Google Cloud Console](https://console.cloud.google.com): enable the **Google Drive API**.
+3. OAuth consent screen: **External**, add yourself as a **Test user**, add scope `drive.file`.
+4. Create an **OAuth client ID** of type **Web application**, and add the Redirect URI from step 1.
+5. Paste the **Client ID** into Settings. Then use **Export → Google Doc / Google Sheet**.
+
+SideNote requests only the `drive.file` scope — it can create and open the files it makes,
+and nothing else in your Drive. Export HTML is converted by Drive to a Doc; CSV to a Sheet.
+
 ## Project layout
 
 | File | Purpose |
@@ -87,6 +103,7 @@ This is an early **proof of concept** (v0.7.0). See [ROADMAP.md](ROADMAP.md) for
 | `options.html` / `options.js` | Settings page |
 | `pages.html` / `pages.js` | All-notes page |
 | `export.js` | Pure note→Markdown/plaintext/CSV/HTML transforms (used by the All-notes page) |
+| `google.js` | Google OAuth (launchWebAuthFlow) + Drive upload for Doc/Sheet export |
 | `help.html` / `help.js` | Help page |
 | `changelog.html` / `changelog.js` / `changelog.json` | Changelog page + data |
 | `options.css` | Shared styling for all extension pages |

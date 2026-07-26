@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.8.0]
+
+### Added
+- Export your notes straight into a Google Doc or Google Sheet from the All notes page.
+- Google export uses your own Google OAuth client — set the client ID (and copy the redirect URI) from Settings → Google export; SideNote only requests permission to create files it makes.
+
 ## [0.7.0]
 
 ### Added
@@ -79,6 +85,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.8.0]: #080
 [0.7.0]: #070
 [0.6.0]: #060
 [0.5.0]: #050

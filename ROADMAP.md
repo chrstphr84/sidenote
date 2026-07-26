@@ -54,12 +54,32 @@ Two supporting refactors ride along:
 - Built on the Phase 0 overlay + `region` anchor; drawings anchor to the element beneath
   them (or the page) and open a note card for a comment.
 
-### Phase 4 — Export — MOSTLY DONE (v0.7.0)
-- Markdown / CSV / plaintext (pure client-side transforms over the note model) — DONE.
-- PDF (styled print view) — DONE.
-- Google Docs / Sheets — PENDING. Needs a Google Cloud OAuth client + the `identity`
-  permission and Docs/Sheets API scopes; the user must register the OAuth client. Gated
-  until that setup is done.
+### Phase 4 — Export — DONE (v0.7.0 / v0.8.0)
+- Markdown / CSV / plaintext (pure client-side transforms over the note model) — DONE (v0.7.0).
+- PDF (styled print view) — DONE (v0.7.0).
+- Google Docs / Sheets — IMPLEMENTED (v0.8.0), pending live verification with a real
+  OAuth client. Uses `chrome.identity.launchWebAuthFlow` (implicit flow, user supplies
+  their own OAuth client ID in Settings — no secret in the repo) + the `drive.file` scope,
+  and reuses the existing HTML/CSV transforms via Drive's import conversion
+  (HTML → Doc, CSV → Sheet).
+
+### Phase 4+ — Export enhancements (later)
+- **Page screenshot in the export** — capture the page (or the region around each note)
+  and embed it in the Doc/PDF export. Likely via `chrome.tabs.captureVisibleTab` (needs
+  `activeTab`/`<all_urls>`) and/or the region overlay; investigate resolution + which
+  export formats can embed images (HTML/Doc/PDF can; Markdown via data URI; CSV can't).
+
+### Phase 5 — Drawing palette polish (follow-up to Phase 3)
+- **Dismiss reliability** — investigate a reported case where the palette gets stuck and
+  can't be dismissed (no firm repro yet); make the close affordance bullet-proof.
+- **Palette entry point near the top** — move the "Draw" trigger from the margin footer
+  toward the top of the panel (and/or a persistent handle) so it's easier to reach.
+- **Undo** — an undo action for the last drawing/stroke (and ideally note actions).
+- **Standard undo key** — hook Cmd/Ctrl+Z when SideNote has focus / a drawing was just
+  made (nice-to-have; may conflict with the page — scope carefully).
+- **Select a piece of a drawing to delete** — click an individual shape within a
+  multi-shape drawing and remove just that shape (the overlay already tags shapes with
+  the note id; extend to per-shape hit-testing + removal).
 
 ### Cross-cutting — Error handling
 - "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
@@ -92,5 +112,7 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Contextual menu add | 1 | Done (v0.4.0) |
 | User keyboard shortcut | 1 | Done (v0.4.0) |
 | Move / hide the margin tab | 2 | Done (v0.5.0) |
-| Exports (MD/CSV/plaintext/PDF/Google) | 4 | MD/CSV/txt/PDF done (v0.7.0); Google pending (OAuth) |
+| Exports (MD/CSV/plaintext/PDF/Google) | 4 | MD/CSV/txt/PDF done (v0.7.0); Google implemented (v0.8.0, pending live verify) |
+| Screenshot in export | 4+ | New |
+| Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | New |
 | Error handling: page 404 | X-cutting | New |
