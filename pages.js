@@ -5,6 +5,7 @@
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
 let settings = { ...DEFAULT_SETTINGS };
 let pages = {};
+const linkStatus = {}; // pageKey -> { label, cls } from the last link check
 
 const els = {
   list: document.getElementById("list"),
@@ -15,6 +16,7 @@ const els = {
   settingsBtn: document.getElementById("settings-btn"),
   exportFormat: document.getElementById("export-format"),
   exportBtn: document.getElementById("export-btn"),
+  checkLinks: document.getElementById("check-links"),
   toast: document.getElementById("toast")
 };
 
@@ -88,12 +90,14 @@ function render() {
       const title = e.title || hostLabel(e.url);
       const notes = (e.comments || []).slice(0, 4).map(noteSnippet).join("");
       const more = total > 4 ? `<div class="page-note" style="border:none;color:var(--text-faint)">+${total - 4} more</div>` : "";
+      const st = linkStatus[key];
+      const badge = st ? ` · <span class="link-badge ${st.cls}">${esc(st.label)}</span>` : "";
       return `<div class="page-item" data-key="${esc(key)}">
           <input type="checkbox" class="select" data-key="${esc(key)}" />
           <div class="page-info">
             <div class="page-title"><a href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">${esc(title)}</a></div>
             <div class="page-url">${esc(e.url)}</div>
-            <div class="page-meta">${total} note${total === 1 ? "" : "s"} · ${open} open · updated ${esc(formatTime(e.updatedAt))}</div>
+            <div class="page-meta">${total} note${total === 1 ? "" : "s"} · ${open} open · updated ${esc(formatTime(e.updatedAt))}${badge}</div>
             <div class="page-notes">${notes}${more}</div>
           </div>
           <div class="row" style="gap:8px; align-items:flex-start">
@@ -165,6 +169,65 @@ els.clearAll.addEventListener("click", () => {
 });
 
 els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());
+
+/* ----------------------------------------------------------- Link check */
+// Best-effort reachability. Cross-origin quirks mean this can't be perfect:
+// a sign-in wall or a server that blocks HEAD isn't a dead page, so we label
+// those distinctly and never delete anything automatically.
+function classifyStatus(status) {
+  if (status >= 200 && status < 400) return { label: "Reachable", cls: "ok" };
+  if (status === 401 || status === 403) return { label: "Sign-in required", cls: "warn" };
+  if (status === 404 || status === 410) return { label: "Not found", cls: "err" };
+  if (status === 405 || status === 501) return { label: "Reachable", cls: "ok" }; // HEAD not allowed, but it answered
+  return { label: `HTTP ${status}`, cls: "warn" };
+}
+
+async function probe(url) {
+  if (!/^https?:/i.test(url)) return { label: "Can't check", cls: "warn" };
+  const attempt = async (method) => {
+    const res = await fetch(url, { method, credentials: "include", redirect: "follow" });
+    return classifyStatus(res.status);
+  };
+  try {
+    return await attempt("HEAD");
+  } catch (_) {
+    try {
+      return await attempt("GET");
+    } catch (_) {
+      return { label: "Unreachable", cls: "err" };
+    }
+  }
+}
+
+async function runPool(items, worker, concurrency) {
+  let i = 0;
+  const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      await worker(items[idx]);
+    }
+  });
+  await Promise.all(runners);
+}
+
+els.checkLinks.addEventListener("click", async () => {
+  const keys = sortedKeys();
+  if (keys.length === 0) return;
+  els.checkLinks.disabled = true;
+  els.checkLinks.textContent = "Checking…";
+  keys.forEach((k) => (linkStatus[k] = { label: "Checking…", cls: "warn" }));
+  render();
+  await runPool(
+    keys,
+    async (key) => {
+      linkStatus[key] = await probe(pages[key].url);
+      render();
+    },
+    5
+  );
+  els.checkLinks.disabled = false;
+  els.checkLinks.textContent = "Check links";
+});
 
 /* --------------------------------------------------------------- Export */
 function exportScope() {

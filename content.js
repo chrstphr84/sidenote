@@ -29,6 +29,7 @@
   let replyDraft = null; // in-progress reply: { commentId, reply }
   let editingId = null; // id of the comment/reply currently being edited
   let colorPickerId = null; // id of the comment whose color palette is open
+  let reanchorId = null; // id of a text note being manually re-anchored
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
@@ -134,6 +135,55 @@
     return null;
   }
 
+  // Collapse whitespace runs to single spaces, keeping a map from each collapsed
+  // index back to the original index — used to re-anchor across formatting changes.
+  function collapseWhitespace(text) {
+    let out = "";
+    const idx = [];
+    let prevSpace = false;
+    for (let i = 0; i < text.length; i += 1) {
+      const ch = text[i];
+      if (/\s/.test(ch)) {
+        if (prevSpace) continue;
+        out += " ";
+        idx.push(i);
+        prevSpace = true;
+      } else {
+        out += ch;
+        idx.push(i);
+        prevSpace = false;
+      }
+    }
+    return { text: out, idx };
+  }
+
+  function rangeFromRawOffsets(map, rawStart, rawEnd) {
+    const s = locate(map, rawStart, false);
+    const e = locate(map, rawEnd, true);
+    if (!s || !e) return null;
+    try {
+      const range = document.createRange();
+      range.setStart(s.node, s.offset);
+      range.setEnd(e.node, e.offset);
+      return range;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Fallback for when the exact string no longer matches (e.g. whitespace or
+  // minor formatting changed): search on a whitespace-collapsed copy.
+  function findRangeNormalized(map, anchor) {
+    const cFull = collapseWhitespace(map.text);
+    const cExact = collapseWhitespace(anchor.exact).text.trim();
+    if (cExact.length < 3) return null;
+    const at = cFull.text.indexOf(cExact);
+    if (at === -1) return null;
+    const rawStart = cFull.idx[at];
+    const rawEnd = cFull.idx[at + cExact.length - 1] + 1;
+    return rangeFromRawOffsets(map, rawStart, rawEnd);
+  }
+
   // Re-find the range for an anchor in the current DOM.
   function findRange(anchor) {
     if (!anchor || !anchor.exact) return null;
@@ -145,7 +195,7 @@
       positions.push(i);
       i = full.indexOf(anchor.exact, i + 1);
     }
-    if (positions.length === 0) return null;
+    if (positions.length === 0) return findRangeNormalized(map, anchor);
 
     let best = positions[0];
     let bestScore = -1;
@@ -978,20 +1028,39 @@
       </div>`;
     const palette = colorPickerId === c.id ? paletteHtml(c) : "";
 
+    const isText = (c.anchor.type || "text") === "text";
+    let orphanRow = "";
+    if (orphaned) {
+      if (reanchorId === c.id) {
+        orphanRow = `<div class="sn-orphan-row">Select the new text on the page…
+          <button class="sn-link" data-action="reanchor-cancel" data-id="${esc(c.id)}">Cancel</button></div>`;
+      } else if (isText) {
+        orphanRow = `<div class="sn-orphan-row">
+          <button class="sn-link" data-action="reanchor" data-id="${esc(c.id)}">Re-anchor to new text</button></div>`;
+      } else {
+        orphanRow = `<div class="sn-orphan-row sn-orphan-hint">Right-click the element again to re-link it.</div>`;
+      }
+    }
+
     return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">
         ${head}
         ${bodyBlock}
         ${repliesBlock}
         ${replyBtn}
         ${tools}
+        ${orphanRow}
         ${palette}
       </article>`;
   }
 
   function panelHtml(side, orphaned) {
     const list = commentsForSide(side);
+    const orphanCount = list.filter((c) => orphaned.has(c.id)).length;
+    const banner = orphanCount
+      ? `<div class="sn-orphan-banner">${orphanCount} note${orphanCount === 1 ? "" : "s"} couldn't be placed on this page (the text or element may have changed).</div>`
+      : "";
     const cards = list.length
-      ? list.map((c) => cardHtml(c, orphaned.has(c.id))).join("")
+      ? banner + list.map((c) => cardHtml(c, orphaned.has(c.id))).join("")
       : `<p class="sn-empty">No notes on this side yet. Select text on the page, then choose <strong>Add note</strong>.</p>`;
     return `<aside class="sn-panel sn-panel-${side}">
         <header class="sn-head">
@@ -1136,6 +1205,14 @@
         break;
       case "color":
         colorPickerId = colorPickerId === id ? null : id;
+        render();
+        break;
+      case "reanchor":
+        startReanchor(id);
+        break;
+      case "reanchor-cancel":
+        reanchorId = null;
+        hideAddButton();
         render();
         break;
       case "set-color":
@@ -1426,7 +1503,10 @@
   let pendingRect = null;
 
   function onSelectionChange() {
-    if (!active || !settings.addSelectionButton) return;
+    if (!active) return;
+    // The selection button normally honors the setting, but a re-anchor in
+    // progress always needs it.
+    if (!settings.addSelectionButton && !reanchorId) return;
     // Debounce with rAF so we read a settled selection.
     requestAnimationFrame(() => {
       const sel = window.getSelection();
@@ -1453,6 +1533,7 @@
     if (!shadow) return;
     const btn = shadow.getElementById("sn-add");
     btn.hidden = false;
+    btn.textContent = reanchorId ? "↪ Re-anchor here" : "💬 Add note";
     // Sit just above the selection (below it when there's no room up top).
     const top = rect.top - 40 < 8 ? rect.bottom + window.scrollY + 8 : rect.top + window.scrollY - 40;
     const left = Math.max(8, Math.min(window.innerWidth - 130, rect.left + window.scrollX));
@@ -1474,8 +1555,39 @@
       return;
     }
     hideAddButton();
-    window.getSelection().removeAllRanges();
+    const sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    if (reanchorId) {
+      reanchorNote(reanchorId, anchor);
+      return;
+    }
     createNote(anchor);
+  }
+
+  function startReanchor(id) {
+    reanchorId = id;
+    colorPickerId = null;
+    showToast("Select the new text on the page, then click “Re-anchor here”.");
+    render();
+  }
+
+  function reanchorNote(id, anchor) {
+    const c = comments.find((x) => x.id === id);
+    reanchorId = null;
+    if (!c) {
+      render();
+      return;
+    }
+    c.anchor = anchor;
+    c.updatedAt = Date.now();
+    mutatePage((e) => {
+      const target = (e.comments || []).find((x) => x.id === id);
+      if (target) {
+        target.anchor = anchor;
+        target.updatedAt = c.updatedAt;
+      }
+    });
+    showToast("Note re-anchored.");
   }
 
   // Build an element anchor from a right-clicked element (no highlight; a pin).
@@ -1730,10 +1842,14 @@
     (e) => {
       if (!active) return;
 
-      // Escape: cancel a stroke, then disarm the tool, then close the palette,
-      // then clear an on-page selection.
+      // Escape: cancel a re-anchor, then a stroke, then disarm the tool, then
+      // close the palette, then clear an on-page selection.
       if (e.key === "Escape") {
-        if (drawing) endStroke();
+        if (reanchorId) {
+          reanchorId = null;
+          hideAddButton();
+          render();
+        } else if (drawing) endStroke();
         else if (drawTool) setTool(null);
         else if (paletteOpen) closePalette();
         else if (selectedNoteId) selectShape(null);
@@ -1970,6 +2086,17 @@
     .sn-btn-primary:hover { filter: brightness(0.96); background: var(--accent); }
 
     .sn-empty { color: var(--text-secondary); line-height: 1.5; padding: 8px 4px; }
+
+    .sn-orphan-banner {
+      background: color-mix(in srgb, var(--danger) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+      color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.4;
+    }
+    .sn-orphan-row {
+      margin-top: 8px; font-size: 12px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .sn-orphan-hint { color: var(--text-faint); }
 
     /* Threaded replies */
     .sn-replies { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }

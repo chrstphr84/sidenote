@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.11.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Re-anchor notes that couldn't be placed: click “Re-anchor to new text” on the note and select the new spot on the page.",
+          "A banner in the margin shows how many notes couldn't be placed on the current page (the text or element may have changed).",
+          "“Check links” on the All notes page marks each page as Reachable, Not found, Sign-in required, or Unreachable — best-effort, and nothing is ever deleted automatically."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "Text notes now re-find their spot more reliably when only the whitespace or minor formatting changed."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.10.0",
     "sections": [
       {

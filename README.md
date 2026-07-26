@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.10.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.11.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -42,8 +42,11 @@ This is an early **proof of concept** (v0.10.0). See [ROADMAP.md](ROADMAP.md) fo
   master switch. Pages that already have notes turn on automatically.
 - Notes are saved locally, keyed by page, so they return after you close the tab or
   the whole window and revisit the page later.
-- Highlights **re-anchor** to their text on reload using the surrounding context; if
-  a page changes so the text is gone, the note is kept and flagged rather than lost.
+- Highlights **re-anchor** to their text on reload using the surrounding context (and
+  tolerate whitespace/formatting changes); if a page changes so the text is gone, the note
+  is kept, flagged, and can be **re-anchored** by selecting the new spot on the page.
+- **Check links** on the All notes page flags pages that are Not found / Unreachable /
+  Sign-in required (best-effort — nothing is ever deleted automatically).
 - On-page indication of notes: the highlights themselves plus a **toolbar badge**
   counting the open notes on the current page.
 - Per-note actions: **edit**, **resolve** (kept with a strikethrough, still deletable),

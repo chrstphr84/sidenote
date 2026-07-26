@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.11.0]
+
+### Added
+- Re-anchor notes that couldn't be placed: click “Re-anchor to new text” on the note and select the new spot on the page.
+- A banner in the margin shows how many notes couldn't be placed on the current page (the text or element may have changed).
+- “Check links” on the All notes page marks each page as Reachable, Not found, Sign-in required, or Unreachable — best-effort, and nothing is ever deleted automatically.
+
+### Changed
+- Text notes now re-find their spot more reliably when only the whitespace or minor formatting changed.
+
 ## [0.10.0]
 
 ### Added
@@ -104,6 +114,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.11.0]: #0110
 [0.10.0]: #0100
 [0.9.0]: #090
 [0.8.0]: #080

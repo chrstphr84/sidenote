@@ -91,9 +91,16 @@ Two supporting refactors ride along:
   is removed when the mouse moves to interact with it. DevTools selection helps when the
   element can be pinned in the Elements tree; otherwise largely unavoidable.
 
-### Cross-cutting — Error handling
-- "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
-- "Page no longer exists" (404): lazy "unreachable" status on the All-notes page; note snippets already give value without the live page.
+### Cross-cutting — Error handling — DONE (v0.11.0)
+- "Page changed": DONE. Whitespace-normalized re-anchoring fallback, an orphan-count
+  banner in the margin, and a per-note "Re-anchor to new text" affordance (select the new
+  spot; the anchor updates). Element/drawing notes prompt to right-click/re-link.
+- "Page no longer exists" (404): DONE. "Check links" on the All-notes page probes each
+  page and labels it Reachable / Not found / Sign-in required / Unreachable. Best-effort
+  (cross-origin auth walls and HEAD-blocking servers are labeled distinctly, not deleted);
+  nothing is ever removed automatically. Note snippets keep value without the live page.
+- Possible follow-ups: element/drawing re-link UI (currently delete + re-add), and an
+  optional auto-check on the All-notes page.
 
 ### Cross-cutting — Play nicely with a top-docked bar (e.g. Colorbars) — DONE (v0.5.0)
 Shipped. Another extension of ours, **Colorbars**, overlays a fixed bar
@@ -116,7 +123,7 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Multiple highlight colors | 2 (polish) | Mostly done (per-note palette, v0.2.0) |
 | Hover note → emphasize target | 0 | Partial (CSS hooks; wiring pending) |
 | Resolved notes strikethrough + delete from margin | 0 | Partial (resolve + delete exist; restyle pending) |
-| Error handling: page changed | X-cutting | Baseline (orphan flagging) |
+| Error handling: page changed | X-cutting | Done (v0.11.0: fuzzy re-anchor + manual re-anchor) |
 | Link directly to elements | 1 | Done (v0.4.0); precision hardened + DevTools pick (v0.9.0) |
 | Highlight/select/draw palette | 3 | Done (v0.6.0) |
 | Contextual menu add | 1 | Done (v0.4.0) |
@@ -125,4 +132,4 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Exports (MD/CSV/plaintext/PDF/Google) | 4 | MD/CSV/txt/PDF done (v0.7.0); Google implemented (v0.8.0, pending live verify) |
 | Screenshot in export | 4+ | New |
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
-| Error handling: page 404 | X-cutting | New |
+| Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |

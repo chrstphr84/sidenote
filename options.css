@@ -453,6 +453,25 @@ ul {
   padding: 48px 16px;
 }
 
+.link-badge {
+  font-weight: 500;
+}
+.link-badge.ok {
+  color: #188038;
+}
+html[data-theme="dark"] .link-badge.ok {
+  color: #81c995;
+}
+.link-badge.warn {
+  color: #b06000;
+}
+html[data-theme="dark"] .link-badge.warn {
+  color: #fdd663;
+}
+.link-badge.err {
+  color: var(--danger);
+}
+
 /* -------------------------------------------------------------- Popup */
 body.popup {
   width: 300px;
