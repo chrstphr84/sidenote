@@ -102,10 +102,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // Content script asks the worker to open an extension page in its own tab
-// (the All-notes list and Settings, from the on-page margin footer).
+// (the All-notes list and Settings, from the on-page margin footer). The
+// DevTools sidebar relays link requests to the inspected tab's content script.
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg && msg.type === "sn-open-tab" && typeof msg.page === "string") {
+  if (!msg || !msg.type) return;
+  if (msg.type === "sn-open-tab" && typeof msg.page === "string") {
     chrome.tabs.create({ url: chrome.runtime.getURL(msg.page) });
+  } else if (msg.type === "sn-devtools-link" && msg.tabId) {
+    chrome.tabs.sendMessage(msg.tabId, { type: "sn-devtools-link" }).catch(() => {});
   }
 });
 

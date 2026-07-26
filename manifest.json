@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "SideNote",
   "description": "Margin comments linked to page highlights — like Google Docs, for any web page.",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "permissions": ["storage", "tabs", "contextMenus", "identity"],
   "host_permissions": ["<all_urls>"],
   "commands": {
@@ -24,6 +24,7 @@
   "background": {
     "service_worker": "background.js"
   },
+  "devtools_page": "devtools.html",
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

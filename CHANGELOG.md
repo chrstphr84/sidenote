@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.9.0]
+
+### Added
+- Link an element precisely from DevTools: open DevTools → Elements, select an element, and use the SideNote sidebar pane to attach a note to it — ideal for tiny or custom controls that are hard to right-click.
+
+### Fixed
+- Right-clicking a custom control (e.g. a checkbox drawn with an SVG icon) now attaches the note to the control or its label instead of an inner shape.
+- Element notes re-find their target far more reliably — including SVG-based elements — so they no longer show “not found on page” after a reload.
+
 ## [0.8.0]
 
 ### Added
@@ -85,6 +94,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.9.0]: #090
 [0.8.0]: #080
 [0.7.0]: #070
 [0.6.0]: #060

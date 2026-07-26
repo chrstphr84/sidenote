@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font: 12px -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        color: #202124;
+        margin: 10px;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e8eaed; }
+      }
+      button {
+        width: 100%;
+        border: 1px solid #1a73e8;
+        background: #1a73e8;
+        color: #fff;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        filter: brightness(0.96);
+      }
+      .hint {
+        margin: 8px 2px 0;
+        color: #80868b;
+        line-height: 1.4;
+      }
+      .status {
+        margin: 8px 2px 0;
+        min-height: 1.2em;
+      }
+      .status.ok {
+        color: #188038;
+      }
+      .status.err {
+        color: #d93025;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="link-btn" type="button">Link selected element to SideNote</button>
+    <div class="status" id="status"></div>
+    <p class="hint">
+      Select an element in the Elements tree, then click. SideNote attaches a note to that
+      exact element and turns on for the page.
+    </p>
+    <script src="devtools-sidebar.js"></script>
+  </body>
+</html>

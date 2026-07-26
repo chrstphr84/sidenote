@@ -232,52 +232,79 @@
   }
 
   /* --------------------------------------------------- Element anchors */
-  // Build a resilient locator for an element (Phase 1 will create these; the
-  // renderer below already consumes them so element notes round-trip now).
-  function xPathOf(el) {
+  // A structural CSS selector path. Unlike positional XPath, CSS selectors match
+  // SVG-namespaced elements (svg/rect/path) via querySelector, which is exactly
+  // what custom checkboxes/icons are built from. Anchors at the nearest unique
+  // id when there is one.
+  function cssPathOf(el) {
     if (!el || el.nodeType !== 1) return "";
-    if (el.id) return `//*[@id="${el.id}"]`;
     const parts = [];
-    for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
-      let i = 1;
-      for (let sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
-        if (sib.tagName === node.tagName) i += 1;
+    let node = el;
+    while (node && node.nodeType === 1) {
+      const tag = (node.tagName || "").toLowerCase();
+      if (!tag || tag === "html") break;
+      if (node.id) {
+        const byId = `#${cssEscape(node.id)}`;
+        try {
+          if (document.querySelectorAll(byId).length === 1) {
+            parts.unshift(byId);
+            break;
+          }
+        } catch (_) {
+          /* invalid id */
+        }
       }
-      parts.unshift(`${node.tagName.toLowerCase()}[${i}]`);
-      if (node.tagName === "BODY") break;
+      let seg = tag.includes(":") ? `*|${tag}` : tag;
+      const parent = node.parentElement;
+      if (parent) {
+        const same = Array.from(parent.children).filter((c) => c.tagName === node.tagName);
+        if (same.length > 1) seg += `:nth-of-type(${same.indexOf(node) + 1})`;
+      }
+      parts.unshift(seg);
+      node = parent;
     }
-    return `/${parts.join("/")}`;
+    return parts.join(" > ");
+  }
+
+  function attrHintOf(el) {
+    return (
+      el.getAttribute("aria-label") ||
+      el.getAttribute("alt") ||
+      el.getAttribute("title") ||
+      el.getAttribute("placeholder") ||
+      el.getAttribute("name") ||
+      (el.tagName === "INPUT" ? el.getAttribute("type") || "input" : "") ||
+      ""
+    );
   }
 
   function buildTarget(el) {
     const rect = el.getBoundingClientRect();
     const nth = el.tagName ? Array.from(document.getElementsByTagName(el.tagName)).indexOf(el) : 0;
     return {
-      selector: el.id ? `#${el.id}` : "",
-      xpath: xPathOf(el),
+      selector: cssPathOf(el),
+      xpath: "",
       tag: el.tagName.toLowerCase(),
       id: el.id || "",
+      role: el.getAttribute("role") || "",
       classes: Array.from(el.classList || []),
       textHint: (el.textContent || "").trim().slice(0, 60),
-      attrHint: el.getAttribute("alt") || el.getAttribute("aria-label") || el.getAttribute("title") || el.value || "",
+      attrHint: attrHintOf(el),
       nthOfType: Math.max(0, nth),
       rect: { w: Math.round(rect.width), h: Math.round(rect.height) }
     };
   }
 
-  // Re-find a linked element by scoring candidate matches.
+  // Re-find a linked element: exact structural selector first, then a scored
+  // fuzzy fallback for pages that reflowed.
   function findElement(target) {
     if (!target) return null;
     if (target.selector) {
-      const bySel = document.querySelector(target.selector);
-      if (bySel) return bySel;
-    }
-    if (target.xpath) {
       try {
-        const r = document.evaluate(target.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-        if (r.singleNodeValue) return r.singleNodeValue;
+        const bySel = document.querySelector(target.selector);
+        if (bySel && !(bySel.closest && bySel.closest(`#${HOST_ID}`))) return bySel;
       } catch (_) {
-        /* malformed xpath */
+        /* invalid selector */
       }
     }
     // Fuzzy fallback: score every element of the same tag.
@@ -285,15 +312,15 @@
     let best = null;
     let bestScore = 0;
     candidates.forEach((el) => {
-      if (el.closest(`#${HOST_ID}`)) return;
+      if (el.closest && el.closest(`#${HOST_ID}`)) return;
       let score = 0;
       if (target.id && el.id === target.id) score += 5;
       if (target.textHint && (el.textContent || "").trim().slice(0, 60) === target.textHint) score += 3;
-      const attr = el.getAttribute("alt") || el.getAttribute("aria-label") || el.getAttribute("title") || el.value || "";
-      if (target.attrHint && attr === target.attrHint) score += 3;
+      if (target.attrHint && attrHintOf(el) === target.attrHint) score += 3;
+      if (target.role && el.getAttribute("role") === target.role) score += 1;
       const cls = Array.from(el.classList || []);
-      const shared = target.classes.filter((c) => cls.includes(c)).length;
-      score += Math.min(shared, 3);
+      const shared = (target.classes || []).filter((c) => cls.includes(c)).length;
+      score += Math.min(shared, 2);
       if (score > bestScore) {
         bestScore = score;
         best = el;
@@ -1360,8 +1387,30 @@
   }
 
   // Build an element anchor from a right-clicked element (no highlight; a pin).
-  function anchorFromElement(el) {
+  // Tags that are meaningful to link on their own — don't climb out of these.
+  const SELF_MEANINGFUL = new Set(["IMG", "VIDEO", "AUDIO", "CANVAS", "INPUT", "BUTTON", "A", "SELECT", "TEXTAREA", "SUMMARY"]);
+
+  // Right-clicking a custom widget (a checkbox, an icon button) usually targets
+  // a leaf like an <svg>/<rect>/<span>. Climb to the nearest real control or
+  // <label> so the note attaches to something meaningful and re-findable.
+  function meaningfulTarget(el) {
+    if (!el || SELF_MEANINGFUL.has(el.tagName)) return el;
+    const svg = el.closest && el.closest("svg");
+    const start = svg || el;
+    const SEL = "a[href],button,label,input,select,textarea,summary,[role],[contenteditable='true']";
+    let hop = start;
+    for (let i = 0; i < 5 && hop && hop.tagName !== "BODY"; i += 1, hop = hop.parentElement) {
+      if (hop.id === HOST_ID) break;
+      if (hop.matches && hop.matches(SEL)) return hop;
+    }
+    return start;
+  }
+
+  // precise=true keeps the exact element (used by DevTools $0 selection).
+  function anchorFromElement(rawEl, precise) {
+    let el = rawEl;
     if (!el || el.nodeType !== Node.ELEMENT_NODE) return null;
+    if (!precise) el = meaningfulTarget(el) || el;
     if (el.id === HOST_ID || (el.closest && el.closest(`#${HOST_ID}`))) return null;
     if (el === document.body || el === document.documentElement) return null;
     return { type: "element", target: buildTarget(el) };
@@ -1540,6 +1589,14 @@
       requestCreate(() => anchorFromSelection());
     } else if (msg.type === "sn-add-element") {
       requestCreate(() => anchorFromElement(lastCtxEl));
+    } else if (msg.type === "sn-devtools-link") {
+      // The DevTools sidebar marked the inspected element ($0) with an
+      // attribute; link that exact element (no ancestor climb).
+      requestCreate(() => {
+        const el = document.querySelector("[data-sidenote-pick]");
+        if (el) el.removeAttribute("data-sidenote-pick");
+        return anchorFromElement(el, true);
+      });
     } else if (msg.type === "sn-draw") {
       if (!active) {
         pendingAction = () => openPalette();

@@ -5,14 +5,16 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.8.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.9.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
 - Attach a comment to any text selection; the text is highlighted on the page and
   the comment appears in a side margin, linked to that highlight.
 - **Link a note to any element** (button, image, link) from the right-click menu — the
-  element is marked with a pin, no highlight needed.
+  element is marked with a pin, no highlight needed. Right-clicking a custom control
+  attaches to its label/control, and you can link the **exact** element from DevTools →
+  Elements → the **SideNote** sidebar pane (handy for checkboxes and other fiddly targets).
 - **Draw on the page** — a palette of rectangle, ellipse, line, arrow, and freehand tools;
   each drawing becomes a note and anchors to the element beneath it (or the page).
 - **Three ways to add a note**, each toggleable in Settings (one always stays on): the
@@ -104,6 +106,8 @@ and nothing else in your Drive. Export HTML is converted by Drive to a Doc; CSV 
 | `pages.html` / `pages.js` | All-notes page |
 | `export.js` | Pure note→Markdown/plaintext/CSV/HTML transforms (used by the All-notes page) |
 | `google.js` | Google OAuth (launchWebAuthFlow) + Drive upload for Doc/Sheet export |
+| `devtools.html` / `devtools.js` | Registers the Elements-panel sidebar pane |
+| `devtools-sidebar.html` / `devtools-sidebar.js` | "Link selected element" pane (uses `$0`) |
 | `help.html` / `help.js` | Help page |
 | `changelog.html` / `changelog.js` / `changelog.json` | Changelog page + data |
 | `options.css` | Shared styling for all extension pages |

@@ -81,6 +81,16 @@ Two supporting refactors ride along:
   multi-shape drawing and remove just that shape (the overlay already tags shapes with
   the note id; extend to per-shape hit-testing + removal).
 
+### Element linking precision — DONE (v0.9.0)
+- Custom controls (e.g. an SVG-drawn checkbox) now climb to the nearest control/label on
+  right-click, and element locators use a structural CSS path that matches SVG-namespaced
+  elements (the old positional XPath silently failed on SVG, causing "not found on page").
+- **DevTools element selection**: an Elements-panel sidebar pane links the exact selected
+  element (`$0`) — for precise/awkward targets — without removing right-click linking.
+- Known limitation: linking hover-only **tooltips** is still hard, since the tooltip DOM
+  is removed when the mouse moves to interact with it. DevTools selection helps when the
+  element can be pinned in the Elements tree; otherwise largely unavoidable.
+
 ### Cross-cutting — Error handling
 - "Page changed": baseline exists (orphaned notes preserved + flagged "not found on page"); improve fuzzy re-anchoring and a manual re-anchor affordance.
 - "Page no longer exists" (404): lazy "unreachable" status on the All-notes page; note snippets already give value without the live page.
@@ -107,7 +117,7 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Hover note → emphasize target | 0 | Partial (CSS hooks; wiring pending) |
 | Resolved notes strikethrough + delete from margin | 0 | Partial (resolve + delete exist; restyle pending) |
 | Error handling: page changed | X-cutting | Baseline (orphan flagging) |
-| Link directly to elements | 1 | Done (v0.4.0) |
+| Link directly to elements | 1 | Done (v0.4.0); precision hardened + DevTools pick (v0.9.0) |
 | Highlight/select/draw palette | 3 | Done (v0.6.0) |
 | Contextual menu add | 1 | Done (v0.4.0) |
 | User keyboard shortcut | 1 | Done (v0.4.0) |
