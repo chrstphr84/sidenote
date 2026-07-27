@@ -9,6 +9,7 @@ let settings = { ...DEFAULT_SETTINGS };
 const els = {
   master: document.getElementById("master"),
   theme: document.getElementById("theme"),
+  layout: document.getElementById("layout"),
   sides: document.getElementById("sides"),
   domainMode: document.getElementById("domain-mode"),
   domainList: document.getElementById("domain-list"),
@@ -55,6 +56,7 @@ function markSegment(container, key, value) {
 function render() {
   els.master.checked = settings.masterEnabled;
   markSegment(els.theme, "theme", settings.theme);
+  markSegment(els.layout, "layout", settings.sidebarLayout);
   markSegment(els.sides, "side", settings.defaultSides);
   markSegment(els.domainMode, "mode", settings.domainMode);
   els.domainListLabel.textContent = settings.domainMode === "allow" ? "Allowed domains" : "Blocked domains";
@@ -85,6 +87,14 @@ els.theme.addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-theme]");
   if (!btn) return;
   settings.theme = btn.dataset.theme;
+  render();
+  save();
+});
+
+els.layout.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-layout]");
+  if (!btn) return;
+  settings.sidebarLayout = btn.dataset.layout;
   render();
   save();
 });

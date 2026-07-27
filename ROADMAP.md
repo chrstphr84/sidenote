@@ -27,10 +27,11 @@ Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
   (currently implicit by array order); moderate.
 
 ### Larger features
-- **Aligned/scrolling sidebar** — an optional layout where each comment is positioned
-  vertically aligned with its highlight and scrolls with the page (Google-Docs-style),
-  with the current list layout staying the default. Large: needs per-note vertical
-  positioning + collision handling + a layout-mode setting.
+- **✓ Aligned/scrolling sidebar (v0.14.0)** — optional layout (Settings → Sidebar layout)
+  where each card is absolutely positioned at its anchor's viewport Y (panel-relative),
+  tracks it on scroll, and collision-pushes overlapping cards down; list stays the default.
+  MVP notes/limitations: cards for off-screen anchors are clipped; orphaned notes pile at
+  the top; no connector lines or focus-shift-to-anchor yet (possible polish later).
 
 ### Settings / All-notes
 - **✓ Remove the "Clear all" button (v0.12.0)** — redundant with Select all + Remove.

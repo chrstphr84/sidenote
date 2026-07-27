@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.13.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.14.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -24,6 +24,8 @@ This is an early **proof of concept** (v0.13.0). See [ROADMAP.md](ROADMAP.md) fo
   (`Alt+Shift+N`).
 - **Hover a note to see where it's linked** — its highlight or pin is emphasized on the
   page, and hovering the target emphasizes its note.
+- **Two sidebar layouts** (Settings): a scrolling **List** (default), or **Aligned** — each
+  note sits next to its highlight and follows it as you scroll, like Google Docs comments.
 - **Threaded replies** on any note; edit or delete individual replies.
 - **Per-note highlight color** — pick from a palette on each note, and the on-page
   highlight updates to match.

@@ -486,6 +486,8 @@
     overlayRaf = requestAnimationFrame(() => {
       overlayRaf = 0;
       drawOverlay();
+      // Cards track their anchors, so realign after the overlay's rects update.
+      layoutAligned();
     });
   }
 
@@ -1057,10 +1059,14 @@
 
   function panelHtml(side, orphaned) {
     const list = commentsForSide(side);
+    const aligned = settings.sidebarLayout === "aligned";
     const orphanCount = list.filter((c) => orphaned.has(c.id)).length;
-    const banner = orphanCount
-      ? `<div class="sn-orphan-banner">${orphanCount} note${orphanCount === 1 ? "" : "s"} couldn't be placed on this page (the text or element may have changed).</div>`
-      : "";
+    // The banner uses normal flow; in aligned mode cards are absolutely
+    // positioned, so skip it there (orphaned cards still pile at the top).
+    const banner =
+      orphanCount && !aligned
+        ? `<div class="sn-orphan-banner">${orphanCount} note${orphanCount === 1 ? "" : "s"} couldn't be placed on this page (the text or element may have changed).</div>`
+        : "";
     const cards = list.length
       ? banner + list.map((c) => cardHtml(c, orphaned.has(c.id))).join("")
       : `<p class="sn-empty">No notes on this side yet. Select text on the page, then choose <strong>Add note</strong>.</p>`;
@@ -1073,7 +1079,7 @@
             <button class="sn-icon" title="Close panel" data-action="close" data-side="${side}">✕</button>
           </div>
         </header>
-        <div class="sn-cards">${cards}</div>
+        <div class="sn-cards${aligned ? " sn-cards-aligned" : ""}">${cards}</div>
         <footer class="sn-foot">
           <button class="sn-link" data-action="all-notes">All notes</button>
           <button class="sn-link" data-action="settings">Settings</button>
@@ -1157,6 +1163,7 @@
     applyPush();
     renderPalette();
     shadow.getElementById("sn-draw-capture").hidden = !drawTool;
+    layoutAligned();
 
     if (editingId) {
       const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(editingId)}"]`);
@@ -1165,6 +1172,29 @@
         ta.setSelectionRange(ta.value.length, ta.value.length);
       }
     }
+  }
+
+  // Aligned layout: position each card at its anchor's vertical position on the
+  // page (panel-relative), then push overlapping cards down. Cards for off-screen
+  // anchors fall outside the panel and are clipped; orphaned notes pile at the top.
+  function layoutAligned() {
+    if (!shadow || settings.sidebarLayout !== "aligned") return;
+    const GAP = 8;
+    shadow.querySelectorAll(".sn-cards-aligned").forEach((body) => {
+      const bodyTop = body.getBoundingClientRect().top;
+      const items = Array.from(body.querySelectorAll(".sn-card")).map((card) => {
+        const t = targetsFor(card.dataset.id)[0];
+        const desired = t ? t.getBoundingClientRect().top - bodyTop : 0;
+        return { card, desired, h: card.offsetHeight };
+      });
+      items.sort((a, b) => a.desired - b.desired);
+      let prevBottom = -Infinity;
+      items.forEach((it) => {
+        const y = Math.max(it.desired, prevBottom + GAP);
+        it.card.style.top = `${Math.round(y)}px`;
+        prevBottom = y + it.h;
+      });
+    });
   }
 
   /* -------------------------------------------------- Chrome actions */
@@ -2102,6 +2132,10 @@
     }
 
     .sn-cards { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    /* Aligned layout: cards are absolutely positioned to track their anchors. */
+    .sn-cards-aligned { position: relative; overflow: hidden; padding: 0; display: block; }
+    .sn-cards-aligned .sn-card { position: absolute; left: 12px; right: 12px; }
+    .sn-cards-aligned .sn-empty { position: absolute; top: 12px; left: 12px; right: 12px; }
 
     .sn-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
