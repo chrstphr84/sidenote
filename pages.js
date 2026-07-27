@@ -12,7 +12,6 @@ const els = {
   toolbar: document.getElementById("toolbar"),
   selectAll: document.getElementById("select-all"),
   removeSelected: document.getElementById("remove-selected"),
-  clearAll: document.getElementById("clear-all"),
   settingsBtn: document.getElementById("settings-btn"),
   exportFormat: document.getElementById("export-format"),
   exportBtn: document.getElementById("export-btn"),
@@ -157,15 +156,6 @@ els.removeSelected.addEventListener("click", () => {
   if (keys.length === 0) return;
   removeKeys(keys);
   toast(`${keys.length} page${keys.length === 1 ? "" : "s"} removed`);
-});
-
-els.clearAll.addEventListener("click", () => {
-  const count = Object.keys(pages).length;
-  if (count === 0) return;
-  if (!window.confirm(`Remove all notes from ${count} page${count === 1 ? "" : "s"}? This can't be undone.`)) return;
-  pages = {};
-  setPages(pages).then(render);
-  toast("All notes cleared");
 });
 
 els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());

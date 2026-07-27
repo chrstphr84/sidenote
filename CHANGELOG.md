@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.12.0]
+
+### Added
+- Notes now appear on load without needing a reload — SideNote keeps trying to place them as the page finishes loading or lazily adds content.
+- A “Require saving notes” option (Settings → Adding notes). Off by default, so a new note is kept even if you don't type anything (a highlight or element link can be enough); turn it on to require Save.
+
+### Changed
+- Starting a new note now keeps the previous one (saved even if empty) instead of discarding it, unless “Require saving notes” is on.
+- “Move to other side” only appears when the margin is set to Both.
+
+### Removed
+- The “Clear all” button on the All notes page — use Select all + Remove selected.
+
 ## [0.11.0]
 
 ### Added
@@ -114,6 +127,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.12.0]: #0120
 [0.11.0]: #0110
 [0.10.0]: #0100
 [0.9.0]: #090

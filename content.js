@@ -1021,7 +1021,7 @@
         <span class="sn-card-tools">
           <button class="sn-icon sn-color-dot" title="Highlight color" data-action="color" data-id="${esc(c.id)}" style="color:${color}">●</button>
           <button class="sn-icon" title="${c.resolved ? "Reopen" : "Resolve"}" data-action="resolve" data-id="${esc(c.id)}">${c.resolved ? "↩" : "✓"}</button>
-          <button class="sn-icon" title="Move to other side" data-action="flip" data-id="${esc(c.id)}">⇄</button>
+          ${sidesInUse().length > 1 ? `<button class="sn-icon" title="Move to other side" data-action="flip" data-id="${esc(c.id)}">⇄</button>` : ""}
           <button class="sn-icon" title="Edit note" data-action="edit" data-id="${esc(c.id)}">✎</button>
           <button class="sn-icon sn-icon-danger" title="Delete note" data-action="delete" data-id="${esc(c.id)}">🗑</button>
         </span>
@@ -1134,7 +1134,13 @@
   function render() {
     if (!shadow) return;
     hostEl.dataset.theme = currentTheme();
+    // Pause the DOM observer around our own span mutations so we don't loop.
+    if (domObserver) domObserver.disconnect();
     const orphaned = renderAnnotations();
+    lastOrphanCount = orphaned.size;
+    if (domObserver && document.body) {
+      domObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
     const chromeEl = shadow.getElementById("sn-chrome");
     let html = "";
     sidesInUse().forEach((side) => {
@@ -1642,11 +1648,32 @@
     });
   }
 
+  // Persist the current draft (even with an empty body). Used when auto-save is
+  // on and the user moves on to another note or leaves the page.
+  function commitDraft() {
+    if (!draft) return;
+    const ta = shadow && shadow.querySelector(`.sn-textarea[data-id="${cssEscape(draft.id)}"]`);
+    if (ta) draft.body = ta.value.trim();
+    draft.updatedAt = Date.now();
+    const toSave = { ...draft };
+    if (editingId === draft.id) editingId = null;
+    draft = null;
+    comments.push(toSave);
+    pushUndo({ kind: "add", id: toSave.id });
+    mutatePage((e) => {
+      e.enabled = true;
+      e.comments = (e.comments || []).filter((c) => c.id !== toSave.id).concat([toSave]);
+    });
+  }
+
   // The single note-creation pipeline. Every trigger (the selection button, the
   // context menu, the keyboard command, and the drawing tools in a later phase)
   // funnels through here: it opens a draft card in edit mode on the right side.
   function createNote(anchor, opts) {
     if (!active) return;
+    // Auto-save mode: starting a new note keeps the previous one (a highlight
+    // alone can be enough). Explicit-save mode discards an unsaved draft.
+    if (draft && !settings.requireExplicitSave) commitDraft();
     const o = opts || {};
     const inUse = sidesInUse();
     const side = o.side && inUse.includes(o.side)
@@ -1696,6 +1723,55 @@
     });
   }
 
+  // --- Late-content handling: notes should appear on load without a reload. ---
+  // Frameworks lazy-render or hydrate after document_idle, so an anchor may not
+  // match on the first pass. We re-render a few times right after mount, and keep
+  // a debounced MutationObserver that re-anchors whenever the DOM changes while
+  // notes are still unplaced (paused during our own span mutations — see render).
+  let domObserver = null;
+  let lastOrphanCount = 0;
+  let reanchorTimer = null;
+
+  function scheduleReanchor() {
+    clearTimeout(reanchorTimer);
+    reanchorTimer = setTimeout(() => {
+      if (active) render();
+    }, 300);
+  }
+
+  function startDomObserver() {
+    if (domObserver || !document.body) return;
+    domObserver = new MutationObserver(() => {
+      if (lastOrphanCount > 0) scheduleReanchor();
+    });
+    domObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  function stopDomObserver() {
+    if (domObserver) {
+      domObserver.disconnect();
+      domObserver = null;
+    }
+    clearTimeout(reanchorTimer);
+  }
+
+  function scheduleInitialPasses() {
+    // rAF catches synchronous late layout; the timers catch async content.
+    requestAnimationFrame(() => {
+      if (active) render();
+    });
+    [250, 800, 1800].forEach((ms) =>
+      setTimeout(() => {
+        if (active && lastOrphanCount > 0) render();
+      }, ms)
+    );
+    if (document.readyState !== "complete") {
+      window.addEventListener("load", () => {
+        if (active) render();
+      }, { once: true });
+    }
+  }
+
   function applyState() {
     const wasActive = active;
     active = isPageEnabled(entry, settings);
@@ -1703,10 +1779,13 @@
     if (active && !wasActive) {
       buildHost();
       autoOpenSidesWithNotes();
+      startDomObserver();
+      scheduleInitialPasses();
     }
     if (!active && wasActive) {
       unwrapAll();
       clearOverlay();
+      stopDomObserver();
       const html = document.documentElement;
       if (html) {
         html.style.removeProperty("margin-left");
@@ -1782,6 +1861,10 @@
     applyTopInset();
     repositionFabs();
   }, { passive: true });
+  // Leaving the page saves an open draft (best-effort) when auto-save is on.
+  window.addEventListener("pagehide", () => {
+    if (draft && !settings.requireExplicitSave) commitDraft();
+  });
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if ((area === "sync" && changes[SETTINGS_KEY]) || (area === "local" && changes[PAGES_KEY])) {

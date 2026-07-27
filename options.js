@@ -15,6 +15,7 @@ const els = {
   showTab: document.getElementById("show-tab"),
   addSelection: document.getElementById("add-selection"),
   addContext: document.getElementById("add-context"),
+  requireSave: document.getElementById("require-save"),
   shortcutEnabled: document.getElementById("shortcut-enabled"),
   shortcutBtn: document.getElementById("shortcut-btn"),
   pagesSummary: document.getElementById("pages-summary"),
@@ -58,6 +59,7 @@ function render() {
   els.googleClientId.value = settings.googleClientId || "";
   els.addSelection.checked = settings.addSelectionButton;
   els.addContext.checked = settings.addContextMenu;
+  els.requireSave.checked = settings.requireExplicitSave;
   els.shortcutEnabled.checked = settings.shortcutEnabled;
   applyTheme();
 }
@@ -129,6 +131,11 @@ function updateAddMethod(which, value) {
 
 els.addSelection.addEventListener("change", () => updateAddMethod("addSelectionButton", els.addSelection.checked));
 els.addContext.addEventListener("change", () => updateAddMethod("addContextMenu", els.addContext.checked));
+els.requireSave.addEventListener("change", () => {
+  settings.requireExplicitSave = els.requireSave.checked;
+  save();
+});
+
 els.shortcutEnabled.addEventListener("change", () => {
   settings.shortcutEnabled = els.shortcutEnabled.checked;
   save();

@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.12.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Notes now appear on load without needing a reload — SideNote keeps trying to place them as the page finishes loading or lazily adds content.",
+          "A “Require saving notes” option (Settings → Adding notes). Off by default, so a new note is kept even if you don't type anything (a highlight or element link can be enough); turn it on to require Save."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "Starting a new note now keeps the previous one (saved even if empty) instead of discarding it, unless “Require saving notes” is on.",
+          "“Move to other side” only appears when the margin is set to Both."
+        ]
+      },
+      {
+        "label": "Removed",
+        "items": [
+          "The “Clear all” button on the All notes page — use Select all + Remove selected."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.11.0",
     "sections": [
       {

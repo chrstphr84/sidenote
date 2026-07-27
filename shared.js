@@ -31,7 +31,8 @@ const DEFAULT_SETTINGS = {
   showTab: true, // show the open/close tab on the page edge
   fabPosition: 0.5, // vertical position as a fraction of the viewport (draggable)
   drawColor: "#f24822", // last-used ink color for the drawing tools
-  googleClientId: "" // user's own OAuth client ID for Google Doc/Sheet export
+  googleClientId: "", // user's own OAuth client ID for Google Doc/Sheet export
+  requireExplicitSave: false // when true, a new note is discarded unless Saved
 };
 
 const ACCENT = "#1a73e8";
@@ -62,6 +63,7 @@ function normalizeSettings(raw) {
     if (Number.isFinite(fp)) s.fabPosition = Math.min(0.95, Math.max(0.05, fp));
     if (/^#([A-Fa-f0-9]{6})$/.test(String(raw.drawColor || ""))) s.drawColor = raw.drawColor;
     if (typeof raw.googleClientId === "string") s.googleClientId = raw.googleClientId.trim();
+    if (typeof raw.requireExplicitSave === "boolean") s.requireExplicitSave = raw.requireExplicitSave;
   }
   // Keep at least one primary add-method enabled.
   if (!s.addSelectionButton && !s.addContextMenu) s.addSelectionButton = true;

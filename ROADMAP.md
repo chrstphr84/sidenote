@@ -4,6 +4,47 @@ Planned direction for SideNote, sequenced so foundational decisions land before
 the features that depend on them (to avoid uprooting work later). This is a
 living document; check it against `CHANGELOG.md` for what has actually shipped.
 
+## Backlog — usage feedback (2026-07-26)
+
+Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
+
+### Fixes
+- **✓ Auto-show notes on load (v0.12.0)** — text highlights and drawings sometimes needed a
+  reload/click to appear (element outlines were reliable). Fixed with timed initial render
+  passes + a debounced MutationObserver that re-anchors when the DOM changes while notes are
+  unplaced (guarded against our own span mutations).
+- **DevTools element selection still not working** — the Elements-panel "SideNote" sidebar
+  pane exists but the user can't select an element there. Needs live debugging: confirm the
+  pane appears, that `$0` is available to `inspectedWindow.eval`, and the background→content
+  relay fires. Consider an alternative (inspect + keyboard command). Can't verify headless.
+
+### Sidebar behavior
+- **✓ Save empty notes by default (v0.12.0)** — starting a new note now commits the previous
+  one even if it has no text (a highlight/link alone can be enough). New `requireExplicitSave`
+  setting (default off) restores the Save-or-discard behavior.
+- **✓ Disable "move to other side" unless "both" is enabled (v0.12.0).**
+- **Reorder notes in the sidebar via drag-and-drop** — needs an explicit order field on notes
+  (currently implicit by array order); moderate.
+
+### Larger features
+- **Aligned/scrolling sidebar** — an optional layout where each comment is positioned
+  vertically aligned with its highlight and scrolls with the page (Google-Docs-style),
+  with the current list layout staying the default. Large: needs per-note vertical
+  positioning + collision handling + a layout-mode setting.
+
+### Settings / All-notes
+- **✓ Remove the "Clear all" button (v0.12.0)** — redundant with Select all + Remove.
+- **Filter / group / select by domain on the All-notes page** — group pages under their
+  domain, filter to one domain, select-all-in-domain. Moderate.
+
+### Enablement model (extension popup + settings)
+- **Master switch should mean "on everywhere by default"** — today master only gates the
+  popup; a page still has to be enabled individually. Desired: master ON → pages default ON
+  (the per-page switch reflects ON), and the per-page switch is how you opt a page out.
+  ⚠️ This makes the FAB appear on every site by default — pair with the domain rules below.
+- **Granular per-domain allow/deny (in Settings)** — allow/deny lists so the "on everywhere"
+  default can be scoped. Should land together with the master-switch change.
+
 ## The pivotal decision: a generalized anchor model
 
 Through v0.2.x a note can only anchor to **text**
