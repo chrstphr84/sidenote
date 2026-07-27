@@ -40,6 +40,29 @@
       </section>
 
       <section class="card">
+        <h2>Where SideNote runs</h2>
+        <p class="intro" style="margin-bottom: 6px">
+          With the master switch on, SideNote is available on every site by default. Use these
+          rules to scope that; a per-page toggle in the popup always wins.
+        </p>
+        <div class="field">
+          <div class="field-text">
+            <div class="field-label">Run on</div>
+            <div class="field-sub">Every site (block a few) or only the sites you list</div>
+          </div>
+          <div class="segmented" id="domain-mode">
+            <button type="button" data-mode="all">All sites</button>
+            <button type="button" data-mode="allow">Only listed</button>
+          </div>
+        </div>
+        <label style="display: block">
+          <span class="field-label" id="domain-list-label">Blocked domains</span>
+          <span class="field-sub">One per line. A bare domain covers subdomains; <code>*</code> wildcards allowed.</span>
+          <textarea id="domain-list" rows="4" style="width: 100%; margin-top: 6px; font-family: ui-monospace, Menlo, monospace; font-size: 13px" placeholder="example.com&#10;*.internal.dev"></textarea>
+        </label>
+      </section>
+
+      <section class="card">
         <h2>Defaults for new pages</h2>
         <div class="field">
           <div class="field-text">

@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.13.0",
+    "sections": [
+      {
+        "label": "Changed",
+        "items": [
+          "The master switch now means “on everywhere”: with it on, SideNote is available on every site by default, and the popup's “This page” reflects that. Turn a page off individually to opt it out."
+        ]
+      },
+      {
+        "label": "Added",
+        "items": [
+          "Settings → “Where SideNote runs”: choose All sites (with a block list) or Only listed sites. Domain patterns support bare domains (covering subdomains) and * wildcards; a per-page toggle always wins."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.12.0",
     "sections": [
       {

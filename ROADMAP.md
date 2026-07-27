@@ -37,13 +37,13 @@ Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
 - **Filter / group / select by domain on the All-notes page** — group pages under their
   domain, filter to one domain, select-all-in-domain. Moderate.
 
-### Enablement model (extension popup + settings)
-- **Master switch should mean "on everywhere by default"** — today master only gates the
-  popup; a page still has to be enabled individually. Desired: master ON → pages default ON
-  (the per-page switch reflects ON), and the per-page switch is how you opt a page out.
-  ⚠️ This makes the FAB appear on every site by default — pair with the domain rules below.
-- **Granular per-domain allow/deny (in Settings)** — allow/deny lists so the "on everywhere"
-  default can be scoped. Should land together with the master-switch change.
+### Enablement model (extension popup + settings) — DONE (v0.13.0)
+- **✓ Master = "on everywhere by default"** — `isPageEnabled` now returns true by default
+  when master is on (subject to domain rules); a per-page toggle overrides either way. The
+  DOM observer is gated to pages that actually have notes to keep the now-many enabled-empty
+  pages cheap.
+- **✓ Per-domain allow/deny (Settings → "Where SideNote runs")** — "All sites" (block list)
+  or "Only listed sites" (allow list); patterns cover subdomains and `*` wildcards.
 
 ## The pivotal decision: a generalized anchor model
 

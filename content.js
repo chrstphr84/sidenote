@@ -701,7 +701,9 @@
       fn(e);
       e.title = document.title || e.title;
       e.updatedAt = Date.now();
-      if ((e.comments || []).length === 0 && e.enabled !== true) {
+      // Keep the entry if it has notes OR an explicit on/off override; otherwise
+      // it's just the default state and needn't be stored.
+      if ((e.comments || []).length === 0 && typeof e.enabled !== "boolean") {
         delete pages[PAGE_KEY];
       } else {
         pages[PAGE_KEY] = e;
@@ -1774,14 +1776,17 @@
 
   function applyState() {
     const wasActive = active;
-    active = isPageEnabled(entry, settings);
+    active = isPageEnabled(entry, settings, location.href);
 
     if (active && !wasActive) {
       buildHost();
       autoOpenSidesWithNotes();
-      startDomObserver();
       scheduleInitialPasses();
     }
+    // The re-anchor observer only matters when there are notes to place; keep it
+    // off on the (now many) enabled-but-empty pages.
+    if (active && comments.length > 0) startDomObserver();
+    else stopDomObserver();
     if (!active && wasActive) {
       unwrapAll();
       clearOverlay();

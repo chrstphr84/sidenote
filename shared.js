@@ -32,8 +32,14 @@ const DEFAULT_SETTINGS = {
   fabPosition: 0.5, // vertical position as a fraction of the viewport (draggable)
   drawColor: "#f24822", // last-used ink color for the drawing tools
   googleClientId: "", // user's own OAuth client ID for Google Doc/Sheet export
-  requireExplicitSave: false // when true, a new note is discarded unless Saved
+  requireExplicitSave: false, // when true, a new note is discarded unless Saved
+  // Where SideNote is on. "all" = every site except domainList (a block list);
+  // "allow" = only sites in domainList. A per-page toggle overrides either way.
+  domainMode: "all",
+  domainList: []
 };
+
+const DOMAIN_MODES = ["all", "allow"];
 
 const ACCENT = "#1a73e8";
 
@@ -64,6 +70,10 @@ function normalizeSettings(raw) {
     if (/^#([A-Fa-f0-9]{6})$/.test(String(raw.drawColor || ""))) s.drawColor = raw.drawColor;
     if (typeof raw.googleClientId === "string") s.googleClientId = raw.googleClientId.trim();
     if (typeof raw.requireExplicitSave === "boolean") s.requireExplicitSave = raw.requireExplicitSave;
+    if (DOMAIN_MODES.includes(raw.domainMode)) s.domainMode = raw.domainMode;
+    if (Array.isArray(raw.domainList)) {
+      s.domainList = raw.domainList.map((d) => String(d || "").trim().toLowerCase()).filter(Boolean);
+    }
   }
   // Keep at least one primary add-method enabled.
   if (!s.addSelectionButton && !s.addContextMenu) s.addSelectionButton = true;
@@ -207,13 +217,41 @@ function normalizePages(raw) {
   return out;
 }
 
-// Whether SideNote should be live on a page. A page with notes is on by
-// default; an empty page is off until turned on; an explicit toggle wins.
-function isPageEnabled(entry, settings) {
-  if (settings && settings.masterEnabled === false) return false;
-  if (!entry) return false;
-  if (typeof entry.enabled === "boolean") return entry.enabled;
-  return (entry.comments || []).length > 0;
+function hostFromHref(href) {
+  const url = buildUrl(href);
+  return url ? url.hostname.toLowerCase() : "";
+}
+
+// A domain pattern matches a host exactly, as a parent domain (covers
+// subdomains), or via a `*` wildcard.
+function domainPatternMatches(pattern, host) {
+  const p = String(pattern || "").trim().toLowerCase();
+  const h = String(host || "").toLowerCase();
+  if (!p || !h) return false;
+  if (p.includes("*")) {
+    const rx = new RegExp("^" + p.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*") + "$");
+    return rx.test(h);
+  }
+  return h === p || h.endsWith("." + p);
+}
+
+// Whether the domain rules allow a host: "all" = anywhere except the list
+// (block list); "allow" = only hosts in the list.
+function domainAllowsHost(settings, host) {
+  const list = settings && Array.isArray(settings.domainList) ? settings.domainList : [];
+  const listed = list.some((p) => domainPatternMatches(p, host));
+  if (settings && settings.domainMode === "allow") return listed;
+  return !listed;
+}
+
+// Whether SideNote should be live on a page. Master on → pages are on by
+// default (subject to the domain rules); an explicit per-page toggle always
+// wins in either direction.
+function isPageEnabled(entry, settings, href) {
+  if (!settings || settings.masterEnabled === false) return false;
+  if (entry && typeof entry.enabled === "boolean") return entry.enabled;
+  const host = hostFromHref(href) || (entry ? hostFromHref(entry.url) : "");
+  return domainAllowsHost(settings, host);
 }
 
 function effectiveSides(entry, settings) {

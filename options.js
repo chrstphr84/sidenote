@@ -10,6 +10,9 @@ const els = {
   master: document.getElementById("master"),
   theme: document.getElementById("theme"),
   sides: document.getElementById("sides"),
+  domainMode: document.getElementById("domain-mode"),
+  domainList: document.getElementById("domain-list"),
+  domainListLabel: document.getElementById("domain-list-label"),
   color: document.getElementById("color"),
   width: document.getElementById("width"),
   showTab: document.getElementById("show-tab"),
@@ -53,6 +56,9 @@ function render() {
   els.master.checked = settings.masterEnabled;
   markSegment(els.theme, "theme", settings.theme);
   markSegment(els.sides, "side", settings.defaultSides);
+  markSegment(els.domainMode, "mode", settings.domainMode);
+  els.domainListLabel.textContent = settings.domainMode === "allow" ? "Allowed domains" : "Blocked domains";
+  if (document.activeElement !== els.domainList) els.domainList.value = (settings.domainList || []).join("\n");
   els.color.value = settings.highlightColor;
   els.width.value = settings.marginWidth;
   els.showTab.checked = settings.showTab;
@@ -109,6 +115,26 @@ els.width.addEventListener("change", () => {
 
 els.showTab.addEventListener("change", () => {
   settings.showTab = els.showTab.checked;
+  save();
+});
+
+els.domainMode.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-mode]");
+  if (!btn) return;
+  settings.domainMode = btn.dataset.mode;
+  render();
+  save();
+});
+
+function parseDomainList() {
+  settings.domainList = els.domainList.value
+    .split("\n")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  settings = normalizeSettings(settings);
+}
+els.domainList.addEventListener("change", () => {
+  parseDomainList();
   save();
 });
 

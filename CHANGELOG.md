@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.13.0]
+
+### Changed
+- The master switch now means “on everywhere”: with it on, SideNote is available on every site by default, and the popup's “This page” reflects that. Turn a page off individually to opt it out.
+
+### Added
+- Settings → “Where SideNote runs”: choose All sites (with a block list) or Only listed sites. Domain patterns support bare domains (covering subdomains) and * wildcards; a per-page toggle always wins.
+
 ## [0.12.0]
 
 ### Added
@@ -127,6 +135,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.13.0]: #0130
 [0.12.0]: #0120
 [0.11.0]: #0110
 [0.10.0]: #0100

@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.12.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.13.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -38,8 +38,9 @@ This is an early **proof of concept** (v0.12.0). See [ROADMAP.md](ROADMAP.md) fo
 - **Plays nicely with a top bar** — if another extension (e.g. Colorbars) docks a bar at
   the top of the page, the margin tucks below it automatically, and re-adjusts if that
   bar resizes or is turned off.
-- Turn SideNote **on or off per page** from the toolbar popup, plus an **All pages**
-  master switch. Pages that already have notes turn on automatically.
+- **On everywhere by default** when the master switch is on; turn a page off individually
+  from the popup, or scope where it runs with **All sites (block list)** or **Only listed
+  sites** rules in Settings → *Where SideNote runs*.
 - Notes are saved locally, keyed by page, so they return after you close the tab or
   the whole window and revisit the page later.
 - Highlights **re-anchor** to their text on reload using the surrounding context (and

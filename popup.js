@@ -60,7 +60,7 @@ function ensureEntry() {
 
 function pruneIfEmpty() {
   const e = pages[pageKey];
-  if (e && (e.comments || []).length === 0 && e.enabled !== true) delete pages[pageKey];
+  if (e && (e.comments || []).length === 0 && typeof e.enabled !== "boolean") delete pages[pageKey];
 }
 
 function render() {
@@ -68,7 +68,7 @@ function render() {
 
   const e = entry();
   const count = unresolvedCount(e);
-  const enabled = isPageEnabled(e, settings);
+  const enabled = isPageEnabled(e, settings, tab ? tab.url : "");
 
   if (!supported) {
     els.pageRow.classList.add("disabled");
