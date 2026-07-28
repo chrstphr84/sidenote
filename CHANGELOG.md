@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.16.0]
+
+### Fixed
+- Aligned layout: notes whose text scrolls out of view are now hidden instead of piling up at the top and crowding the notes you're looking at. Notes that can't be placed on the page sit in a small stack at the top, clear of the aligned ones.
+
 ## [0.15.0]
 
 ### Fixed
@@ -149,6 +154,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.16.0]: #0160
 [0.15.0]: #0150
 [0.14.0]: #0140
 [0.13.0]: #0130

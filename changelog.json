@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.16.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "Aligned layout: notes whose text scrolls out of view are now hidden instead of piling up at the top and crowding the notes you're looking at. Notes that can't be placed on the page sit in a small stack at the top, clear of the aligned ones."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.15.0",
     "sections": [
       {

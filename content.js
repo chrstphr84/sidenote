@@ -1210,22 +1210,43 @@
     }
   }
 
-  // Aligned layout: position each card at its anchor's vertical position on the
-  // page (panel-relative), then push overlapping cards down. Cards for off-screen
-  // anchors fall outside the panel and are clipped; orphaned notes pile at the top.
+  // Aligned layout: each card sits at its anchor's vertical position (panel-
+  // relative). Cards whose anchor is scrolled out of view are hidden (so they
+  // don't cascade and crowd the top while scrolling); notes that can't be placed
+  // (orphaned) sit in a compact pinned stack at the top. Anchored cards use a
+  // collision push-down starting below that stack.
   function layoutAligned() {
     if (!shadow || settings.sidebarLayout !== "aligned") return;
     const GAP = 8;
     shadow.querySelectorAll(".sn-cards-aligned").forEach((body) => {
       const bodyTop = body.getBoundingClientRect().top;
-      const items = Array.from(body.querySelectorAll(".sn-card")).map((card) => {
+      const bodyH = body.clientHeight || body.getBoundingClientRect().height;
+      const anchored = [];
+      const unplaced = [];
+      Array.from(body.querySelectorAll(".sn-card")).forEach((card) => {
         const t = targetsFor(card.dataset.id)[0];
-        const desired = t ? t.getBoundingClientRect().top - bodyTop : 0;
-        return { card, desired, h: card.offsetHeight };
+        const h = card.offsetHeight;
+        if (t) anchored.push({ card, desired: t.getBoundingClientRect().top - bodyTop, h });
+        else unplaced.push({ card, h });
       });
-      items.sort((a, b) => a.desired - b.desired);
-      let prevBottom = -Infinity;
-      items.forEach((it) => {
+
+      // Unplaced (couldn't be located) → compact stack pinned at the top.
+      let pileBottom = 0;
+      unplaced.forEach((it) => {
+        it.card.style.display = "";
+        it.card.style.top = `${pileBottom}px`;
+        pileBottom += it.h + GAP;
+      });
+
+      // Anchored → aligned; hide those scrolled out of view so they don't pile.
+      anchored.sort((a, b) => a.desired - b.desired);
+      let prevBottom = pileBottom - GAP;
+      anchored.forEach((it) => {
+        if (it.desired + it.h < pileBottom || it.desired > bodyH) {
+          it.card.style.display = "none";
+          return;
+        }
+        it.card.style.display = "";
         const y = Math.max(it.desired, prevBottom + GAP);
         it.card.style.top = `${Math.round(y)}px`;
         prevBottom = y + it.h;

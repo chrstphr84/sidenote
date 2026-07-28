@@ -38,8 +38,9 @@ Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
 - **✓ Aligned/scrolling sidebar (v0.14.0)** — optional layout (Settings → Sidebar layout)
   where each card is absolutely positioned at its anchor's viewport Y (panel-relative),
   tracks it on scroll, and collision-pushes overlapping cards down; list stays the default.
-  MVP notes/limitations: cards for off-screen anchors are clipped; orphaned notes pile at
-  the top; no connector lines or focus-shift-to-anchor yet (possible polish later).
+  v0.16.0: cards for off-screen anchors are now hidden (not piled) so scrolling doesn't
+  crowd the visible notes; orphaned notes sit in a contained top stack. Still no connector
+  lines or focus-shift-to-anchor (possible polish later).
 
 ### Settings / All-notes
 - **✓ Remove the "Clear all" button (v0.12.0)** — redundant with Select all + Remove.
