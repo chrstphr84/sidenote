@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.15.0]
+
+### Fixed
+- A note now saves the moment it's created (even with no text), so starting a new highlight or element link never discards the previous note. Delete any you don't want; turn on “Require saving notes” in Settings for the old save-or-discard behavior.
+- Typing a note on sites with single-key keyboard shortcuts (like GitHub) no longer triggers those shortcuts — key presses inside SideNote stay in SideNote.
+
+### Changed
+- In the default auto-save mode, a note's editor shows Done / Delete (instead of Save / Cancel), since the note is already saved.
+
 ## [0.14.0]
 
 ### Added
@@ -140,6 +149,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.15.0]: #0150
 [0.14.0]: #0140
 [0.13.0]: #0130
 [0.12.0]: #0120

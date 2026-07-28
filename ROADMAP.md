@@ -9,6 +9,14 @@ living document; check it against `CHANGELOG.md` for what has actually shipped.
 Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
 
 ### Fixes
+- **✓ Notes save on creation (v0.15.0)** — a note persists the instant it's created (even
+  empty); creating a new anchor flushes the current note's text first, so nothing is lost.
+  Auto-save is default; `requireExplicitSave` restores Save-or-discard.
+- **✓ Page keyboard-shortcut conflict (v0.15.0)** — key events typed inside SideNote are
+  stopped at the shadow boundary (bubble phase), so sites with single-key hotkeys (GitHub)
+  don't act on them; our own shortcuts use document capture and still fire.
+- **Aligned layout** — verified working in tests (cards track anchors). If it appears not to
+  work, confirm the extension is reloaded (v0.14.0+) and Settings → Sidebar layout → Aligned.
 - **✓ Auto-show notes on load (v0.12.0)** — text highlights and drawings sometimes needed a
   reload/click to appear (element outlines were reliable). Fixed with timed initial render
   passes + a debounced MutationObserver that re-anchors when the DOM changes while notes are

@@ -30,6 +30,7 @@
   let editingId = null; // id of the comment/reply currently being edited
   let colorPickerId = null; // id of the comment whose color palette is open
   let reanchorId = null; // id of a text note being manually re-anchored
+  let focusPending = false; // focus the editor textarea on the next render only
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
@@ -781,6 +782,14 @@
     watchTopBar();
     applyTopInset();
 
+    // Keep key events typed inside our UI from reaching the page — otherwise a
+    // site's global shortcuts (e.g. GitHub's single-key hotkeys) fire while the
+    // user is typing a note. Our own shortcuts listen on document in the capture
+    // phase, which runs before this bubble-phase stop, so they still work.
+    ["keydown", "keyup", "keypress"].forEach((type) =>
+      shadow.addEventListener(type, (e) => e.stopPropagation())
+    );
+
     // Overlay pins/outlines/shapes: click → select (for deletion) + focus card.
     const svg = shadow.getElementById("sn-overlay");
     svg.addEventListener("click", (e) => {
@@ -930,11 +939,19 @@
     }
   }
 
-  function editorHtml(id, value, placeholder) {
+  function editorHtml(id, value, placeholder, kind) {
+    // A root note in auto-save mode is already persisted, so its editor offers
+    // Done (close) and Delete rather than Save/Cancel. Replies and explicit-save
+    // notes keep Save/Cancel.
+    const auto = kind === "note" && !settings.requireExplicitSave;
+    const primary = auto ? "Done" : "Save";
+    const secondary = auto
+      ? `<button class="sn-btn sn-btn-danger" data-action="delete" data-id="${esc(id)}">Delete</button>`
+      : `<button class="sn-btn" data-action="cancel" data-id="${esc(id)}">Cancel</button>`;
     return `<textarea class="sn-textarea" data-id="${esc(id)}" placeholder="${esc(placeholder)}" rows="3">${esc(value || "")}</textarea>
       <div class="sn-card-actions">
-        <button class="sn-btn sn-btn-primary" data-action="save" data-id="${esc(id)}">Save</button>
-        <button class="sn-btn" data-action="cancel" data-id="${esc(id)}">Cancel</button>
+        <button class="sn-btn sn-btn-primary" data-action="save" data-id="${esc(id)}">${primary}</button>
+        ${secondary}
       </div>`;
   }
 
@@ -945,7 +962,7 @@
 
   function replyHtml(comment, reply) {
     if (reply.id === editingId) {
-      return `<div class="sn-reply sn-reply-editing">${editorHtml(reply.id, reply.body, "Write a reply…")}</div>`;
+      return `<div class="sn-reply sn-reply-editing">${editorHtml(reply.id, reply.body, "Write a reply…", "reply")}</div>`;
     }
     return `<div class="sn-reply">
         <div class="sn-reply-body">${esc(reply.body)}</div>
@@ -1002,7 +1019,7 @@
     if (editingRoot) {
       return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">
           ${head}
-          ${editorHtml(c.id, c.body, "Add your note…")}
+          ${editorHtml(c.id, c.body, "Add your note…", "note")}
         </article>`;
     }
 
@@ -1142,6 +1159,22 @@
   function render() {
     if (!shadow) return;
     hostEl.dataset.theme = currentTheme();
+    // Preserve in-progress edit text across the full rebuild below (a data
+    // change or re-anchor shouldn't wipe what the user is typing).
+    if (editingId) {
+      const prevTa = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(editingId)}"]`);
+      if (prevTa) {
+        if (draft && draft.id === editingId) draft.body = prevTa.value;
+        else {
+          const c = comments.find((x) => x.id === editingId);
+          if (c) c.body = prevTa.value;
+          else {
+            const r = findReply(editingId);
+            if (r) r.reply.body = prevTa.value;
+          }
+        }
+      }
+    }
     // Pause the DOM observer around our own span mutations so we don't loop.
     if (domObserver) domObserver.disconnect();
     const orphaned = renderAnnotations();
@@ -1165,11 +1198,14 @@
     shadow.getElementById("sn-draw-capture").hidden = !drawTool;
     layoutAligned();
 
-    if (editingId) {
+    // Focus the editor only when it was just opened, so incidental re-renders
+    // (re-anchor, data changes) don't steal focus mid-typing.
+    if (editingId && focusPending) {
       const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(editingId)}"]`);
       if (ta) {
         ta.focus();
         ta.setSelectionRange(ta.value.length, ta.value.length);
+        focusPending = false;
       }
     }
   }
@@ -1221,6 +1257,7 @@
         break;
       case "edit":
         editingId = id;
+        focusPending = true;
         colorPickerId = null;
         render();
         break;
@@ -1236,6 +1273,7 @@
         break;
       case "edit-reply":
         editingId = id;
+        focusPending = true;
         render();
         break;
       case "delete-reply":
@@ -1424,6 +1462,7 @@
     const reply = { id: genId("reply"), body: "", createdAt: Date.now(), updatedAt: Date.now() };
     replyDraft = { commentId, reply };
     editingId = reply.id;
+    focusPending = true;
     colorPickerId = null;
     render();
   }
@@ -1680,32 +1719,35 @@
     });
   }
 
-  // Persist the current draft (even with an empty body). Used when auto-save is
-  // on and the user moves on to another note or leaves the page.
-  function commitDraft() {
-    if (!draft) return;
-    const ta = shadow && shadow.querySelector(`.sn-textarea[data-id="${cssEscape(draft.id)}"]`);
-    if (ta) draft.body = ta.value.trim();
-    draft.updatedAt = Date.now();
-    const toSave = { ...draft };
-    if (editingId === draft.id) editingId = null;
-    draft = null;
-    comments.push(toSave);
-    pushUndo({ kind: "add", id: toSave.id });
-    mutatePage((e) => {
-      e.enabled = true;
-      e.comments = (e.comments || []).filter((c) => c.id !== toSave.id).concat([toSave]);
-    });
+  // Flush the text of the note currently being edited into storage (auto-save
+  // mode). Called before creating another note and when leaving the page, so
+  // typed text is never lost even though there's no explicit Save.
+  function flushEditingBody() {
+    if (!editingId || !shadow) return;
+    const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(editingId)}"]`);
+    if (!ta) return;
+    const body = ta.value.trim();
+    const c = comments.find((x) => x.id === editingId);
+    if (c && c.body !== body) {
+      c.body = body;
+      c.updatedAt = Date.now();
+      mutatePage((e) => {
+        const t = (e.comments || []).find((x) => x.id === editingId);
+        if (t) {
+          t.body = body;
+          t.updatedAt = c.updatedAt;
+        }
+      });
+    }
   }
 
   // The single note-creation pipeline. Every trigger (the selection button, the
-  // context menu, the keyboard command, and the drawing tools in a later phase)
-  // funnels through here: it opens a draft card in edit mode on the right side.
+  // context menu, the keyboard command, the drawing tools) funnels through here.
   function createNote(anchor, opts) {
     if (!active) return;
-    // Auto-save mode: starting a new note keeps the previous one (a highlight
-    // alone can be enough). Explicit-save mode discards an unsaved draft.
-    if (draft && !settings.requireExplicitSave) commitDraft();
+    // Save the text of any note being edited so switching to a new anchor never
+    // loses it.
+    if (!settings.requireExplicitSave) flushEditingBody();
     const o = opts || {};
     const inUse = sidesInUse();
     const side = o.side && inUse.includes(o.side)
@@ -1715,7 +1757,7 @@
       : inUse.includes("right")
       ? "right"
       : inUse[0];
-    draft = {
+    const note = {
       id: genId("note"),
       anchor,
       body: "",
@@ -1726,10 +1768,25 @@
       updatedAt: Date.now(),
       replies: []
     };
-    editingId = draft.id;
+    editingId = note.id;
+    focusPending = true;
     colorPickerId = null;
-    open[panelSideFor(draft)] = true;
-    render();
+    open[panelSideFor(note)] = true;
+    if (settings.requireExplicitSave) {
+      // Provisional until Saved.
+      draft = note;
+      render();
+    } else {
+      // Persist immediately — a note is never lost, even with no text.
+      draft = null;
+      comments.push(note);
+      pushUndo({ kind: "add", id: note.id });
+      mutatePage((e) => {
+        e.enabled = true;
+        e.comments = (e.comments || []).filter((c) => c.id !== note.id).concat([note]);
+      });
+      render();
+    }
   }
 
   /* ------------------------------------------------------------- Toast */
@@ -1767,8 +1824,21 @@
   function scheduleReanchor() {
     clearTimeout(reanchorTimer);
     reanchorTimer = setTimeout(() => {
-      if (active) render();
+      if (active) reanchorOnly();
     }, 300);
+  }
+
+  // Re-place highlights/pins/drawings (and realign cards) WITHOUT rebuilding the
+  // panel — so a late-content re-anchor never wipes a note the user is editing.
+  function reanchorOnly() {
+    if (!shadow) return;
+    if (domObserver) domObserver.disconnect();
+    const orphaned = renderAnnotations();
+    lastOrphanCount = orphaned.size;
+    if (domObserver && document.body) {
+      domObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    layoutAligned();
   }
 
   function startDomObserver() {
@@ -1896,9 +1966,9 @@
     applyTopInset();
     repositionFabs();
   }, { passive: true });
-  // Leaving the page saves an open draft (best-effort) when auto-save is on.
+  // Leaving the page saves in-progress note text (best-effort) when auto-save is on.
   window.addEventListener("pagehide", () => {
-    if (draft && !settings.requireExplicitSave) commitDraft();
+    if (!settings.requireExplicitSave) flushEditingBody();
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -2206,6 +2276,7 @@
     .sn-btn:hover { background: var(--surface-2); }
     .sn-btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: transparent; }
     .sn-btn-primary:hover { filter: brightness(0.96); background: var(--accent); }
+    .sn-btn-danger { color: var(--danger); }
 
     .sn-empty { color: var(--text-secondary); line-height: 1.5; padding: 8px 4px; }
 

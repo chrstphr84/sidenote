@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.15.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "A note now saves the moment it's created (even with no text), so starting a new highlight or element link never discards the previous note. Delete any you don't want; turn on “Require saving notes” in Settings for the old save-or-discard behavior.",
+          "Typing a note on sites with single-key keyboard shortcuts (like GitHub) no longer triggers those shortcuts — key presses inside SideNote stay in SideNote."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "In the default auto-save mode, a note's editor shows Done / Delete (instead of Save / Cancel), since the note is already saved."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.14.0",
     "sections": [
       {
