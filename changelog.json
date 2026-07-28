@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.17.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "Highlighting text that spans more than one paragraph or element no longer fails — such notes were being orphaned (“text wasn't found on the page”) the instant they were created. SideNote now anchors to the page's own text instead of the browser's selection string, which silently adds line breaks at element boundaries.",
+          "Re-finding highlighted text on a later visit is more tolerant of whitespace and formatting differences."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.16.0",
     "sections": [
       {

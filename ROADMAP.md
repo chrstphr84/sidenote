@@ -9,6 +9,11 @@ living document; check it against `CHANGELOG.md` for what has actually shipped.
 Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
 
 ### Fixes
+- **✓ Text re-anchoring across elements (v0.17.0)** — multi-paragraph/multi-node selections
+  were orphaned on creation because the anchor stored `Selection.toString()` (which injects
+  whitespace at element boundaries) while re-anchoring searches SideNote's own text-node
+  concatenation. Now the anchor is derived from that same concatenation; plus a
+  whitespace-stripping re-anchor fallback tolerates separator/formatting changes on reload.
 - **✓ Notes save on creation (v0.15.0)** — a note persists the instant it's created (even
   empty); creating a new anchor flushes the current note's text first, so nothing is lost.
   Auto-save is default; `requireExplicitSave` restores Save-or-discard.

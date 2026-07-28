@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.17.0]
+
+### Fixed
+- Highlighting text that spans more than one paragraph or element no longer fails — such notes were being orphaned (“text wasn't found on the page”) the instant they were created. SideNote now anchors to the page's own text instead of the browser's selection string, which silently adds line breaks at element boundaries.
+- Re-finding highlighted text on a later visit is more tolerant of whitespace and formatting differences.
+
 ## [0.16.0]
 
 ### Fixed
@@ -154,6 +160,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.17.0]: #0170
 [0.16.0]: #0160
 [0.15.0]: #0150
 [0.14.0]: #0140

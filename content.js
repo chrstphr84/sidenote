@@ -98,23 +98,28 @@
   function anchorFromSelection() {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
-    const exact = sel.toString();
-    if (!exact.trim()) return null;
+    const selString = sel.toString();
+    if (!selString.trim()) return null;
 
     const range = sel.getRangeAt(0);
     const map = buildTextMap();
     let startG = globalOffsetOf(map, range.startContainer, range.startOffset);
     let endG = globalOffsetOf(map, range.endContainer, range.endOffset);
 
-    // Fall back to a plain text search when the selection boundaries aren't
+    // Fall back to locating the selection string when the boundaries aren't
     // clean text nodes (e.g. they land on element edges).
     if (startG == null || endG == null || endG <= startG) {
-      const found = map.text.indexOf(exact);
-      if (found === -1) return { type: "text", exact, prefix: "", suffix: "", index: 0 };
+      const found = map.text.indexOf(selString);
+      if (found === -1) return { type: "text", exact: selString, prefix: "", suffix: "", index: 0 };
       startG = found;
-      endG = found + exact.length;
+      endG = found + selString.length;
     }
 
+    // Derive `exact` from our own text-node concatenation, NOT
+    // Selection.toString() — the latter injects whitespace/newlines at element
+    // boundaries that the concatenation lacks, which made multi-node selections
+    // fail to re-anchor (they orphaned the instant they were created).
+    const exact = map.text.slice(startG, endG);
     return {
       type: "text",
       exact,
@@ -172,17 +177,37 @@
     }
   }
 
-  // Fallback for when the exact string no longer matches (e.g. whitespace or
-  // minor formatting changed): search on a whitespace-collapsed copy.
-  function findRangeNormalized(map, anchor) {
-    const cFull = collapseWhitespace(map.text);
-    const cExact = collapseWhitespace(anchor.exact).text.trim();
-    if (cExact.length < 3) return null;
-    const at = cFull.text.indexOf(cExact);
+  // Drop whitespace entirely, keeping a collapsed→raw index map. More tolerant
+  // than collapsing (handles separators that exist on one side but not the
+  // other, e.g. element boundaries after a reflow).
+  function stripWhitespace(text) {
+    let out = "";
+    const idx = [];
+    for (let i = 0; i < text.length; i += 1) {
+      if (!/\s/.test(text[i])) {
+        out += text[i];
+        idx.push(i);
+      }
+    }
+    return { text: out, idx };
+  }
+
+  function matchNormalized(map, normFull, exactStr) {
+    if (!exactStr || exactStr.length < 3) return null;
+    const at = normFull.text.indexOf(exactStr);
     if (at === -1) return null;
-    const rawStart = cFull.idx[at];
-    const rawEnd = cFull.idx[at + cExact.length - 1] + 1;
+    const rawStart = normFull.idx[at];
+    const rawEnd = normFull.idx[at + exactStr.length - 1] + 1;
     return rangeFromRawOffsets(map, rawStart, rawEnd);
+  }
+
+  // Fallback when the exact string no longer matches: try a whitespace-collapsed
+  // search, then a whitespace-stripped search.
+  function findRangeNormalized(map, anchor) {
+    return (
+      matchNormalized(map, collapseWhitespace(map.text), collapseWhitespace(anchor.exact).text.trim()) ||
+      matchNormalized(map, stripWhitespace(map.text), stripWhitespace(anchor.exact).text)
+    );
   }
 
   // Re-find the range for an anchor in the current DOM.
