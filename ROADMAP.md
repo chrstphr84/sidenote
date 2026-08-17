@@ -51,11 +51,14 @@ work lands before the features that depend on it. ✓ = shipped.
   rather than HTML, so it round-trips through the existing Markdown/CSV/plaintext exports
   and rendering stays XSS-safe (escape first, then apply a fixed set of replacements).
 
-### Group E — Keyboard
-- **Cmd+Enter / Ctrl+Enter saves**; **Esc cancels** (partly present).
-- **Shift+click** selects multiple notes in the sidebar (prerequisite for consolidation
-  and reordering).
-- **Hold Option (mac) / Alt (win) to reveal a hidden sidebar tab** (settings option).
+### Group E — Keyboard — ✓ v0.21.0
+- **✓ Cmd/Ctrl+Enter saves** the focused note or reply.
+- **✓ Esc** now steps back through: close the editor (keeping text) → clear a multi-select
+  → cancel a re-anchor → cancel a stroke → disarm the tool → close the palette → deselect.
+- **✓ Shift+click multi-select** in the sidebar, with a "N selected / Clear" bar.
+  `multiSelected` is the hook Group G's consolidation will build on.
+- **✓ Option/Alt reveals a hidden tab** while held (Settings toggle
+  `revealTabOnModifier`; released on keyup or window blur).
 
 ### Group F — Sidebar visibility
 - **Auto-hide sidebar** option: reveal on hover-tool/context-menu trigger, auto-hide after

@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.21.0]
+
+### Added
+- ⌘Enter / Ctrl+Enter saves the note you're editing.
+- Esc closes the editor (your text is kept), and steps back out of a selection, drawing, or the palette.
+- Shift+click notes in the sidebar to select several at once — a bar shows how many are selected.
+- When the margin tab is hidden, hold Option (Mac) or Alt (Windows) to reveal it; toggleable in Settings.
+
+### Fixed
+- Note text typed just before closing the editor is now always saved.
+
 ## [0.20.0]
 
 ### Added
@@ -194,6 +205,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.21.0]: #0210
 [0.20.0]: #0200
 [0.19.0]: #0190
 [0.18.0]: #0180

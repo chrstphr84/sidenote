@@ -39,6 +39,8 @@
   let reanchorId = null; // id of a text note being manually re-anchored
   let focusPending = false; // focus the editor textarea on the next render only
   let hoverEditId = null; // note under the current selection (edit instead of add)
+  const multiSelected = new Set(); // Shift+clicked cards (drives consolidation)
+  let modifierHeld = false; // Option/Alt held → temporarily reveal a hidden tab
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
@@ -909,6 +911,15 @@
         setColor(e.target.dataset.id, e.target.value, true);
       }
     });
+    // Cmd/Ctrl+Enter saves the note or reply being edited.
+    chromeEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+      const ta = e.target.closest && e.target.closest(".sn-textarea");
+      if (!ta) return;
+      e.preventDefault();
+      saveEdit(ta.dataset.id);
+      render();
+    });
     chromeEl.addEventListener("change", (e) => {
       if (e.target.classList && e.target.classList.contains("sn-color-input")) {
         setColor(e.target.dataset.id, e.target.value);
@@ -1264,6 +1275,7 @@
     if (c.resolved) classes.push("sn-card-resolved");
     if (orphaned) classes.push("sn-card-orphan");
     if (editingRoot) classes.push("sn-card-editing");
+    if (multiSelected.has(c.id)) classes.push("sn-card-multi");
 
     const head = anchorHeadHtml(c);
 
@@ -1350,6 +1362,13 @@
             <button class="sn-icon" title="Close panel" data-action="close" data-side="${side}">✕</button>
           </div>
         </header>
+        ${
+          multiSelected.size
+            ? `<div class="sn-multibar">${multiSelected.size} selected
+                 <button class="sn-link" data-action="clear-multi">Clear</button>
+               </div>`
+            : ""
+        }
         <div class="sn-cards${aligned ? " sn-cards-aligned" : ""}">${cards}</div>
         <footer class="sn-foot sn-foot-${side}">
           <button class="sn-link" data-action="settings">Settings</button>
@@ -1441,7 +1460,7 @@
     sidesInUse().forEach((side) => {
       if (open[side]) {
         html += panelHtml(side, orphaned);
-      } else if (settings.showTab) {
+      } else if (settings.showTab || modifierHeld) {
         const count = commentsForSide(side).filter((c) => !c.resolved).length;
         html += fabHtml(side, count);
       }
@@ -1515,6 +1534,20 @@
 
   /* -------------------------------------------------- Chrome actions */
   function onChromeClick(e) {
+    // Shift+click toggles a card's selection (for consolidating/reordering)
+    // rather than triggering whatever control was under the pointer.
+    if (e.shiftKey) {
+      const card = e.target.closest(".sn-card");
+      if (card) {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = card.dataset.id;
+        if (multiSelected.has(id)) multiSelected.delete(id);
+        else multiSelected.add(id);
+        render();
+        return;
+      }
+    }
     const el = e.target.closest("[data-action]");
     if (!el) return;
     const action = el.dataset.action;
@@ -1576,6 +1609,10 @@
         break;
       case "format":
         applyFormat(id, el.dataset.fmt);
+        break;
+      case "clear-multi":
+        multiSelected.clear();
+        render();
         break;
       case "custom-color": {
         // Open the browser's own colour picker via the paired hidden input.
@@ -2066,17 +2103,20 @@
     if (!ta) return;
     const body = ta.value.trim();
     const c = comments.find((x) => x.id === editingId);
-    if (c && c.body !== body) {
-      c.body = body;
-      c.updatedAt = Date.now();
-      mutatePage((e) => {
-        const t = (e.comments || []).find((x) => x.id === editingId);
-        if (t) {
-          t.body = body;
-          t.updatedAt = c.updatedAt;
-        }
-      });
-    }
+    if (!c) return;
+    // Always write through: render() mirrors in-progress text into the local
+    // model to preserve it across rebuilds, so comparing against `c.body` would
+    // wrongly conclude there's nothing to persist.
+    const id = editingId;
+    c.body = body;
+    c.updatedAt = Date.now();
+    mutatePage((e) => {
+      const t = (e.comments || []).find((x) => x.id === id);
+      if (t) {
+        t.body = body;
+        t.updatedAt = c.updatedAt;
+      }
+    });
   }
 
   // The single note-creation pipeline. Every trigger (the selection button, the
@@ -2326,6 +2366,17 @@
     if (active && settings.theme === "auto") render();
   });
 
+  // Releasing Option/Alt (or leaving the page) hides a temporarily-revealed tab.
+  function releaseModifier() {
+    if (!modifierHeld) return;
+    modifierHeld = false;
+    if (active) render();
+  }
+  document.addEventListener("keyup", (e) => {
+    if (e.key === "Alt") releaseModifier();
+  }, true);
+  window.addEventListener("blur", releaseModifier);
+
   // Remember the element under the last right-click so the context-menu handler
   // can link a note to it (contextMenus doesn't hand us the DOM node).
   let lastCtxEl = null;
@@ -2378,7 +2429,19 @@
       // Escape: cancel a re-anchor, then a stroke, then disarm the tool, then
       // close the palette, then clear an on-page selection.
       if (e.key === "Escape") {
-        if (reanchorId) {
+        // Typing in a note? Esc closes that editor first (auto-save keeps the
+        // text; explicit-save discards an unsaved draft).
+        if (editingId && isEditableFocused()) {
+          if (settings.requireExplicitSave) cancelEdit();
+          else {
+            flushEditingBody();
+            editingId = null;
+          }
+          render();
+        } else if (multiSelected.size) {
+          multiSelected.clear();
+          render();
+        } else if (reanchorId) {
           reanchorId = null;
           hideAddButton();
           render();
@@ -2396,6 +2459,13 @@
           e.preventDefault();
           undo();
         }
+        return;
+      }
+
+      // Holding Option/Alt temporarily reveals a hidden margin tab.
+      if (e.key === "Alt" && !settings.showTab && settings.revealTabOnModifier && !modifierHeld) {
+        modifierHeld = true;
+        render();
         return;
       }
 
@@ -2566,6 +2636,12 @@
     .sn-card-resolved .sn-body { text-decoration: line-through; text-decoration-color: var(--text-faint); }
     .sn-card-orphan { border-style: dashed; }
     .sn-card-hover { border-color: var(--accent); }
+    .sn-card-multi { box-shadow: 0 0 0 2px var(--accent); }
+    .sn-multibar {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 6px 14px; font-size: 12px; color: var(--text-secondary);
+      background: var(--surface-2); border-bottom: 1px solid var(--border);
+    }
     .sn-card-flash { animation: sn-card-flash 1s ease; }
     @keyframes sn-card-flash {
       0%,100% { box-shadow: 0 0 0 0 rgba(26,115,232,0); }

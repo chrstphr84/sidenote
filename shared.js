@@ -35,6 +35,8 @@ const DEFAULT_SETTINGS = {
   sidebarLayout: "aligned",
   // The speech-bubble margin tab (FAB).
   showTab: true, // show the open/close tab on the page edge
+  // When the tab is hidden, holding Option (mac) / Alt (win) reveals it.
+  revealTabOnModifier: true,
   fabPosition: 0.5, // vertical position as a fraction of the viewport (draggable)
   drawColor: "#f24822", // last-used ink color for the drawing tools
   googleClientId: "", // user's own OAuth client ID for Google Doc/Sheet export
@@ -75,6 +77,7 @@ function normalizeSettings(raw) {
     if (typeof raw.shortcutEnabled === "boolean") s.shortcutEnabled = raw.shortcutEnabled;
     if (LAYOUT_VALUES.includes(raw.sidebarLayout)) s.sidebarLayout = raw.sidebarLayout;
     if (typeof raw.showTab === "boolean") s.showTab = raw.showTab;
+    if (typeof raw.revealTabOnModifier === "boolean") s.revealTabOnModifier = raw.revealTabOnModifier;
     const fp = Number(raw.fabPosition);
     if (Number.isFinite(fp)) s.fabPosition = Math.min(0.95, Math.max(0.05, fp));
     if (/^#([A-Fa-f0-9]{6})$/.test(String(raw.drawColor || ""))) s.drawColor = raw.drawColor;

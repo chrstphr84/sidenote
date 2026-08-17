@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.21.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "⌘Enter / Ctrl+Enter saves the note you're editing.",
+          "Esc closes the editor (your text is kept), and steps back out of a selection, drawing, or the palette.",
+          "Shift+click notes in the sidebar to select several at once — a bar shows how many are selected.",
+          "When the margin tab is hidden, hold Option (Mac) or Alt (Windows) to reveal it; toggleable in Settings."
+        ]
+      },
+      {
+        "label": "Fixed",
+        "items": [
+          "Note text typed just before closing the editor is now always saved."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.20.0",
     "sections": [
       {

@@ -19,6 +19,7 @@ const els = {
   opacityValue: document.getElementById("opacity-value"),
   width: document.getElementById("width"),
   showTab: document.getElementById("show-tab"),
+  revealTab: document.getElementById("reveal-tab"),
   addSelection: document.getElementById("add-selection"),
   addContext: document.getElementById("add-context"),
   requireSave: document.getElementById("require-save"),
@@ -68,6 +69,7 @@ function render() {
   els.opacityValue.textContent = `${Math.round(settings.highlightOpacity * 100)}%`;
   els.width.value = settings.marginWidth;
   els.showTab.checked = settings.showTab;
+  els.revealTab.checked = settings.revealTabOnModifier;
   els.googleClientId.value = settings.googleClientId || "";
   els.addSelection.checked = settings.addSelectionButton;
   els.addContext.checked = settings.addContextMenu;
@@ -139,6 +141,11 @@ els.width.addEventListener("change", () => {
 
 els.showTab.addEventListener("change", () => {
   settings.showTab = els.showTab.checked;
+  save();
+});
+
+els.revealTab.addEventListener("change", () => {
+  settings.revealTabOnModifier = els.revealTab.checked;
   save();
 });
 
