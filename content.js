@@ -420,19 +420,41 @@
   }
 
   /* ------------------------------------------------------- SVG overlay */
-  // Pins (element notes) and drawings (region notes) live in a fixed, isolated
-  // SVG layer in the shadow root; positions are recomputed from live element
-  // rects on scroll/resize.
+  // Annotations live on TWO layers:
+  //   #sn-doc-overlay — position:absolute at the document origin, so its
+  //     contents are drawn in PAGE coordinates. An element's rect in document
+  //     space doesn't change while scrolling, so this layer needs no work at all
+  //     on scroll: the browser moves it natively and drawings stay glued to the
+  //     content (this is what removes the "jumpy" lag).
+  //   #sn-overlay — position:fixed, viewport coordinates. Only used for the
+  //     live drawing preview and for anchors inside fixed/sticky containers,
+  //     which genuinely do move relative to the document as you scroll.
   const overlayItems = []; // { comment, el|null }
 
   function overlayEl() {
     return shadow ? shadow.getElementById("sn-overlay") : null;
   }
 
+  function docOverlayEl() {
+    return shadow ? shadow.getElementById("sn-doc-overlay") : null;
+  }
+
+  // Fixed/sticky ancestors move with the viewport, so those anchors can't use
+  // scroll-invariant page coordinates.
+  function isViewportFixed(el) {
+    for (let n = el; n && n.nodeType === 1 && n !== document.documentElement; n = n.parentElement) {
+      const pos = getComputedStyle(n).position;
+      if (pos === "fixed" || pos === "sticky") return true;
+    }
+    return false;
+  }
+
   function clearOverlay() {
     overlayItems.length = 0;
-    const svg = overlayEl();
-    if (svg) svg.innerHTML = "";
+    const fx = overlayEl();
+    const doc = docOverlayEl();
+    if (fx) fx.innerHTML = "";
+    if (doc) doc.innerHTML = "";
   }
 
   function svgNode(name, attrs) {
@@ -452,40 +474,63 @@
     return true;
   }
 
-  // Draw/position every overlay item from current geometry.
-  function drawOverlay() {
-    const svg = overlayEl();
-    if (!svg) return;
-    svg.innerHTML = "";
+  // Draw/position every overlay item. `fixedOnly` redraws just the viewport
+  // layer — the document layer is scroll-invariant, so scrolling never touches
+  // it (that's the whole point).
+  function drawOverlay(fixedOnly) {
+    const fx = overlayEl();
+    const doc = docOverlayEl();
+    if (!fx || !doc) return;
+    // Preserve the in-flight preview, which lives on the fixed layer.
+    const preview = Array.from(fx.querySelectorAll('[data-sidenote-id="__preview__"]'));
+    fx.innerHTML = "";
+    preview.forEach((n) => fx.appendChild(n));
+    if (!fixedOnly) doc.innerHTML = "";
+
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+
     overlayItems.forEach(({ comment, el }) => {
+      // Page-anchored drawings are already in page coords → document layer.
+      const pinned = el ? isViewportFixed(el) : false;
+      if (fixedOnly && !pinned) return;
+      const svg = pinned ? fx : doc;
+      // Document layer needs viewport→page conversion; fixed layer does not.
+      const ox = pinned ? 0 : sx;
+      const oy = pinned ? 0 : sy;
       const color = comment.color || settings.highlightColor;
+
       if (comment.anchor.type === "element" && el) {
         const r = el.getBoundingClientRect();
-        const box = svgNode("rect", {
-          x: r.left - 2, y: r.top - 2, width: r.width + 4, height: r.height + 4,
-          rx: 4, fill: "none", stroke: color, "stroke-width": 2,
-          "stroke-dasharray": comment.resolved ? "4 3" : "0",
-          class: "sn-ov-outline", "data-sidenote-id": comment.id
-        });
-        const pin = svgNode("circle", {
-          cx: r.right, cy: r.top, r: 9, fill: color, stroke: "#fff", "stroke-width": 2,
-          class: "sn-ov-pin", "data-sidenote-id": comment.id
-        });
-        svg.appendChild(box);
-        svg.appendChild(pin);
+        svg.appendChild(
+          svgNode("rect", {
+            x: r.left + ox - 2, y: r.top + oy - 2, width: r.width + 4, height: r.height + 4,
+            rx: 4, fill: "none", stroke: color, "stroke-width": 2,
+            "stroke-dasharray": comment.resolved ? "4 3" : "0",
+            class: "sn-ov-outline", "data-sidenote-id": comment.id
+          })
+        );
+        svg.appendChild(
+          svgNode("circle", {
+            cx: r.right + ox, cy: r.top + oy, r: 9, fill: color, stroke: "#fff", "stroke-width": 2,
+            class: "sn-ov-pin", "data-sidenote-id": comment.id
+          })
+        );
       } else if (comment.anchor.type === "region") {
-        // Element-relative: track the element's live rect. Page-relative: points
-        // are page coords, so shift by the negative scroll to place them on the
-        // fixed overlay (and they follow the page as it scrolls).
         const origin = el
-          ? el.getBoundingClientRect()
-          : { left: -window.scrollX, top: -window.scrollY };
+          ? { left: el.getBoundingClientRect().left + ox, top: el.getBoundingClientRect().top + oy }
+          : { left: 0, top: 0 }; // page coords, drawn straight onto the doc layer
         (comment.anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin));
       }
     });
-    // Re-apply the on-page selection emphasis after a redraw (scroll/resize).
+
+    // Re-apply the on-page selection emphasis after a redraw.
     if (selectedNoteId) {
-      svg.querySelectorAll(`[data-sidenote-id="${cssEscape(selectedNoteId)}"]`).forEach((n) => n.classList.add("sn-ov-selected"));
+      [fx, doc].forEach((layer) =>
+        layer
+          .querySelectorAll(`[data-sidenote-id="${cssEscape(selectedNoteId)}"]`)
+          .forEach((n) => n.classList.add("sn-ov-selected"))
+      );
     }
   }
 
@@ -519,14 +564,20 @@
   }
 
   let overlayRaf = 0;
-  function scheduleOverlayRedraw() {
+  function scheduleOverlayRedraw(fixedOnly) {
     if (overlayRaf) return;
     overlayRaf = requestAnimationFrame(() => {
       overlayRaf = 0;
-      drawOverlay();
-      // Cards track their anchors, so realign after the overlay's rects update.
+      drawOverlay(fixedOnly);
+      // Cards live in the fixed panel, so they always realign with the viewport.
       layoutAligned();
     });
+  }
+
+  // Scroll: the document layer moves natively with the page, so only the
+  // viewport-fixed layer (rare) and the aligned cards need any work.
+  function onScrollRedraw() {
+    scheduleOverlayRedraw(true);
   }
 
   /* ---------------------------------------------------- Drawing tools */
@@ -583,11 +634,29 @@
     if (undoBtn) undoBtn.disabled = !(undoStack.length > 0 || draft);
   }
 
+  // Canvas-driven apps (Figma, Miro, map views) paint their content into a
+  // <canvas> with no DOM to anchor to, and their pan/zoom is internal — there's
+  // no signal we can observe. Annotations can't follow that content, so say so
+  // once rather than silently misplacing them.
+  let canvasWarned = false;
+  function isCanvasApp() {
+    const vw = window.innerWidth * window.innerHeight;
+    if (!vw) return false;
+    return Array.from(document.getElementsByTagName("canvas")).some((c) => {
+      const r = c.getBoundingClientRect();
+      return r.width * r.height > vw * 0.5;
+    });
+  }
+
   function openPalette() {
     paletteOpen = true;
     drawTool = null;
     syncCaptureLayer();
     render(); // also refreshes the header's pencil toggle state
+    if (!canvasWarned && isCanvasApp()) {
+      canvasWarned = true;
+      showToast("This page draws its content in a canvas — notes can't follow it when you pan or zoom.");
+    }
   }
 
   // Fully tear down the drawing UI: any in-progress stroke, the armed tool, and
@@ -740,9 +809,12 @@
 
   // Every element the note's highlight/pin/shape maps to, for scroll + emphasis.
   function targetsFor(id) {
-    return Array.from(document.querySelectorAll(`.__sidenote_hl[data-sidenote-id="${cssEscape(id)}"]`)).concat(
-      overlayEl() ? Array.from(overlayEl().querySelectorAll(`[data-sidenote-id="${cssEscape(id)}"]`)) : []
-    );
+    const sel = `[data-sidenote-id="${cssEscape(id)}"]`;
+    let out = Array.from(document.querySelectorAll(`.__sidenote_hl${sel}`));
+    [overlayEl(), docOverlayEl()].forEach((layer) => {
+      if (layer) out = out.concat(Array.from(layer.querySelectorAll(sel)));
+    });
+    return out;
   }
 
   function renderList() {
@@ -807,6 +879,7 @@
     shadow = hostEl.attachShadow({ mode: "open" });
     shadow.innerHTML = `<style>${SIDEBAR_CSS}</style>
       <div id="sn-draw-capture" class="sn-draw-capture" hidden></div>
+      <svg id="sn-doc-overlay" class="sn-doc-overlay"></svg>
       <svg id="sn-overlay" class="sn-overlay"></svg>
       <div id="sn-palette" class="sn-palette-bar" hidden></div>
       <div id="sn-chrome"></div>
@@ -855,21 +928,22 @@
       shadow.addEventListener(type, (e) => e.stopPropagation())
     );
 
-    // Overlay pins/outlines/shapes: click → select (for deletion) + focus card.
-    const svg = shadow.getElementById("sn-overlay");
-    svg.addEventListener("click", (e) => {
-      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
-      if (!id) return;
-      selectShape(id, e.clientX, e.clientY);
-      focusCard(id);
-    });
-    svg.addEventListener("mouseover", (e) => {
-      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
-      if (id) emphasizeCard(id, true);
-    });
-    svg.addEventListener("mouseout", (e) => {
-      const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
-      if (id) emphasizeCard(id, false);
+    // Overlay pins/outlines/shapes (both layers): click → select + focus card.
+    [shadow.getElementById("sn-overlay"), shadow.getElementById("sn-doc-overlay")].forEach((svg) => {
+      svg.addEventListener("click", (e) => {
+        const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+        if (!id || id === "__preview__") return;
+        selectShape(id, e.clientX, e.clientY);
+        focusCard(id);
+      });
+      svg.addEventListener("mouseover", (e) => {
+        const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+        if (id) emphasizeCard(id, true);
+      });
+      svg.addEventListener("mouseout", (e) => {
+        const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+        if (id) emphasizeCard(id, false);
+      });
     });
 
     // Floating delete for the selected drawing/pin.
@@ -883,13 +957,13 @@
   // Select an on-page drawing/pin so it can be deleted (Del key or the menu).
   function selectShape(id, x, y) {
     selectedNoteId = id || null;
-    const svg = overlayEl();
-    if (svg) {
+    [overlayEl(), docOverlayEl()].forEach((svg) => {
+      if (!svg) return;
       svg.querySelectorAll(".sn-ov-selected").forEach((n) => n.classList.remove("sn-ov-selected"));
       if (id) {
         svg.querySelectorAll(`[data-sidenote-id="${cssEscape(id)}"]`).forEach((n) => n.classList.add("sn-ov-selected"));
       }
-    }
+    });
     const menu = shadow && shadow.getElementById("sn-shape-menu");
     if (menu) {
       if (id && typeof x === "number") {
@@ -1297,11 +1371,17 @@
         else unplaced.push({ card, h });
       });
 
+      // Position with `transform` rather than `top`: it's compositor-friendly,
+      // so per-scroll repositioning doesn't force a layout pass (less jitter).
+      const place = (card, y) => {
+        card.style.display = "";
+        card.style.transform = `translateY(${Math.round(y)}px)`;
+      };
+
       // Unplaced (couldn't be located) → compact stack pinned at the top.
       let pileBottom = 0;
       unplaced.forEach((it) => {
-        it.card.style.display = "";
-        it.card.style.top = `${pileBottom}px`;
+        place(it.card, pileBottom);
         pileBottom += it.h + GAP;
       });
 
@@ -1313,9 +1393,8 @@
           it.card.style.display = "none";
           return;
         }
-        it.card.style.display = "";
         const y = Math.max(it.desired, prevBottom + GAP);
-        it.card.style.top = `${Math.round(y)}px`;
+        place(it.card, y);
         prevBottom = y + it.h;
       });
     });
@@ -2050,7 +2129,7 @@
   window.addEventListener(
     "scroll",
     () => {
-      scheduleOverlayRedraw();
+      onScrollRedraw();
       const menu = shadow && shadow.getElementById("sn-shape-menu");
       if (menu && !menu.hidden) menu.hidden = true;
     },
@@ -2310,7 +2389,7 @@
     .sn-cards { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
     /* Aligned layout: cards are absolutely positioned to track their anchors. */
     .sn-cards-aligned { position: relative; overflow: hidden; padding: 0; display: block; }
-    .sn-cards-aligned .sn-card { position: absolute; left: 12px; right: 12px; }
+    .sn-cards-aligned .sn-card { position: absolute; top: 0; left: 12px; right: 12px; will-change: transform; }
     .sn-cards-aligned .sn-empty { position: absolute; top: 12px; left: 12px; right: 12px; }
 
     .sn-card {
@@ -2333,9 +2412,19 @@
       position: fixed; inset: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 2147483645; overflow: visible;
     }
-    .sn-overlay .sn-ov-pin, .sn-overlay .sn-ov-outline, .sn-overlay .sn-ov-shape { pointer-events: auto; cursor: pointer; }
-    .sn-overlay .sn-ov-active, .sn-overlay .sn-ov-flash { filter: drop-shadow(0 0 3px var(--accent)); }
-    .sn-overlay .sn-ov-selected { filter: drop-shadow(0 0 4px var(--accent)); stroke-dasharray: 5 3; }
+    /* Document-coordinate layer: anchored at the document origin with zero size
+       and overflow visible, so it can paint anywhere on the page without
+       affecting layout or the scroll extent — and scrolls natively with it. */
+    .sn-doc-overlay {
+      position: absolute; top: 0; left: 0; width: 0; height: 0;
+      overflow: visible; pointer-events: none; z-index: 2147483645;
+    }
+    .sn-overlay .sn-ov-pin, .sn-overlay .sn-ov-outline, .sn-overlay .sn-ov-shape,
+    .sn-doc-overlay .sn-ov-pin, .sn-doc-overlay .sn-ov-outline, .sn-doc-overlay .sn-ov-shape {
+      pointer-events: auto; cursor: pointer;
+    }
+    .sn-ov-active, .sn-ov-flash { filter: drop-shadow(0 0 3px var(--accent)); }
+    .sn-ov-selected { filter: drop-shadow(0 0 4px var(--accent)); stroke-dasharray: 5 3; }
     .sn-overlay .sn-ov-flash { animation: sn-ov-flash 1s ease; }
     @keyframes sn-ov-flash { 0%,100% { opacity: 1; } 40% { opacity: 0.35; } }
 

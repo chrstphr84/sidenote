@@ -25,18 +25,19 @@ work lands before the features that depend on it. ✓ = shipped.
 - **✓ Version number in faint text at the bottom, linking to the changelog.**
 - **✓ Aligned layout becomes the default.**
 
-### Group C — Rendering fluidity (architectural)
-- **Embed annotations in document coordinates** instead of a fixed overlay repainted per
-  scroll event. `position:absolute` at page coords lets the browser scroll drawings
-  natively (no JS per frame) — this is the real fix for "jumpy" drawings, and answers the
-  "embed into the HTML" question: yes, but as an absolutely-positioned layer we still own
-  (not written into the site's markup, which would break the page and be lost on reload).
-- **Aligned cards**: position via compositor-friendly `transform` and one rAF-batched read
-  per frame instead of `top` writes, to smooth comment jumpiness.
-- **Canvas/zoom apps (Figma, Miro)** — NOT generally solvable: the board is a WebGL canvas
-  with no DOM to anchor to and no observable zoom signal. Plan: detect canvas-dominant
-  pages and either anchor to the viewport (screen-sticky notes) or disable drawing there,
-  with a clear message. Do not promise content-tracking.
+### Group C — Rendering fluidity (architectural) — ✓ v0.19.0
+- **✓ Document-coordinate overlay** — annotations now render on `#sn-doc-overlay`
+  (`position:absolute` at the document origin, zero-size + `overflow:visible` so it can't
+  affect layout or scroll extent). Because an element's rect in *document* space is
+  scroll-invariant, scrolling touches nothing: the browser moves the layer natively. The
+  old fixed layer (`#sn-overlay`) is kept only for the live drawing preview and for
+  anchors inside `fixed`/`sticky` containers, which really do move with the viewport.
+- **✓ Aligned cards** positioned with `transform: translateY()` (compositor-friendly)
+  instead of `top`, with reads batched before writes.
+- **✓ Canvas/zoom apps (Figma, Miro)** — detected (a canvas covering >50% of the viewport)
+  and surfaced with an honest one-time message when the palette opens. NOT solvable
+  generally: no DOM to anchor to and no observable pan/zoom signal, so we don't pretend to
+  track content. Possible future: viewport-anchored ("screen-sticky") notes for these.
 
 ### Group D — Editing & interaction
 - **Click an existing highlight to edit it** — the hover affordance becomes ✏️ "Edit note"

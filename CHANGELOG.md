@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.19.0]
+
+### Changed
+- Drawings and pins now scroll smoothly with the page instead of lagging behind it — they're drawn in page coordinates on a layer the browser scrolls natively, so scrolling no longer repositions them frame by frame.
+- Notes in the aligned sidebar reposition more smoothly while scrolling.
+- Annotations attached to a sticky or floating header keep tracking it correctly.
+
+### Added
+- On pages that draw their content in a canvas (Figma, Miro, map views), SideNote now says up front that annotations can't follow the content when you pan or zoom, instead of silently misplacing them.
+
 ## [0.18.0]
 
 ### Added
@@ -175,6 +185,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.19.0]: #0190
 [0.18.0]: #0180
 [0.17.0]: #0170
 [0.16.0]: #0160
