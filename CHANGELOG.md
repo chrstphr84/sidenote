@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.20.0]
+
+### Added
+- Click a highlight to edit its note. Selecting text that's already highlighted now offers “✏️ Edit note” instead of adding a second note on top of it.
+- Drag a drawing to move it somewhere else on the page.
+- Custom colour: a rainbow swatch in each note's colour row opens the full colour picker.
+- Formatting in notes — bold, italic, and strikethrough, from a small toolbar above the editor. Formatting carries through to Markdown exports.
+- A drawing's ink colour now shows in its note's colour swatch, and changing it recolours the drawing.
+
 ## [0.19.0]
 
 ### Changed
@@ -185,6 +194,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.20.0]: #0200
 [0.19.0]: #0190
 [0.18.0]: #0180
 [0.17.0]: #0170

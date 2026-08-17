@@ -39,14 +39,17 @@ work lands before the features that depend on it. ✓ = shipped.
   generally: no DOM to anchor to and no observable pan/zoom signal, so we don't pretend to
   track content. Possible future: viewport-anchored ("screen-sticky") notes for these.
 
-### Group D — Editing & interaction
-- **Click an existing highlight to edit it** — the hover affordance becomes ✏️ "Edit note"
-  rather than "Add note".
-- **Click a drawing to select and move it** to a new position.
-- **Drawing line color shown in the note** where the highlight color swatch sits.
-- **Custom color picker** — an extra round swatch filled with the classic rainbow gradient
-  that opens a full picker.
-- **Rich text in comments** — bold, italic, strikethrough.
+### Group D — Editing & interaction — ✓ v0.20.0
+- **✓ Click a highlight to edit** its note; selecting already-highlighted text shows
+  ✏️ "Edit note" and edits rather than stacking a duplicate note.
+- **✓ Drag a drawing to move it** (only when no draw tool is armed, since the capture layer
+  owns the pointer then); shapes translate live and commit their new points on release.
+- **✓ Drawing ink colour shown in the note's swatch**, and changing it recolours the shapes.
+- **✓ Custom colour** — rainbow (conic-gradient) swatch opening the native `<input
+  type="color">` picker, with live preview while dragging.
+- **✓ Rich text** — bold/italic/strikethrough via a small toolbar. Stored as **Markdown**
+  rather than HTML, so it round-trips through the existing Markdown/CSV/plaintext exports
+  and rendering stays XSS-safe (escape first, then apply a fixed set of replacements).
 
 ### Group E — Keyboard
 - **Cmd+Enter / Ctrl+Enter saves**; **Esc cancels** (partly present).

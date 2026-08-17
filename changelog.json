@@ -1,5 +1,20 @@
 [
   {
+    "version": "0.20.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Click a highlight to edit its note. Selecting text that's already highlighted now offers “✏️ Edit note” instead of adding a second note on top of it.",
+          "Drag a drawing to move it somewhere else on the page.",
+          "Custom colour: a rainbow swatch in each note's colour row opens the full colour picker.",
+          "Formatting in notes — bold, italic, and strikethrough, from a small toolbar above the editor. Formatting carries through to Markdown exports.",
+          "A drawing's ink colour now shows in its note's colour swatch, and changing it recolours the drawing."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.19.0",
     "sections": [
       {

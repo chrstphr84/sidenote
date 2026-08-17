@@ -38,6 +38,7 @@
   let colorPickerId = null; // id of the comment whose color palette is open
   let reanchorId = null; // id of a text note being manually re-anchored
   let focusPending = false; // focus the editor textarea on the next render only
+  let hoverEditId = null; // note under the current selection (edit instead of add)
   let active = false; // is SideNote live on this page?
   const open = { left: false, right: false }; // which panels are expanded
 
@@ -903,6 +904,16 @@
     // user navigates, closes the panel, or starts another note.
     chromeEl.addEventListener("input", (e) => {
       if (e.target.classList && e.target.classList.contains("sn-textarea")) scheduleBodySave();
+      // Live preview while dragging in the native colour picker.
+      if (e.target.classList && e.target.classList.contains("sn-color-input")) {
+        setColor(e.target.dataset.id, e.target.value, true);
+      }
+    });
+    chromeEl.addEventListener("change", (e) => {
+      if (e.target.classList && e.target.classList.contains("sn-color-input")) {
+        setColor(e.target.dataset.id, e.target.value);
+        render();
+      }
     });
     // Hover a card → emphasize its on-page target(s).
     chromeEl.addEventListener("mouseover", (e) => {
@@ -930,9 +941,10 @@
 
     // Overlay pins/outlines/shapes (both layers): click → select + focus card.
     [shadow.getElementById("sn-overlay"), shadow.getElementById("sn-doc-overlay")].forEach((svg) => {
+      svg.addEventListener("mousedown", onShapeDragStart);
       svg.addEventListener("click", (e) => {
         const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
-        if (!id || id === "__preview__") return;
+        if (!id || id === "__preview__" || shapeDragged) return;
         selectShape(id, e.clientX, e.clientY);
         focusCard(id);
       });
@@ -952,6 +964,55 @@
       selectShape(null);
       if (id) deleteComment(id);
     });
+  }
+
+  // Drag a drawing to reposition it. Only when no draw tool is armed (the
+  // capture layer would otherwise swallow the press). Shapes translate live and
+  // the new points are committed on release.
+  let shapeDragged = false;
+  function onShapeDragStart(e) {
+    if (drawTool) return; // drawing mode owns the pointer
+    const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
+    if (!id || id === "__preview__") return;
+    const c = comments.find((x) => x.id === id);
+    if (!c || c.anchor.type !== "region") return; // only drawings move
+
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let moved = false;
+    const nodes = targetsFor(id).filter((n) => n.namespaceURI === "http://www.w3.org/2000/svg");
+
+    const onMove = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      moved = true;
+      nodes.forEach((n) => n.setAttribute("transform", `translate(${dx} ${dy})`));
+    };
+    const onUp = (ev) => {
+      document.removeEventListener("mousemove", onMove, true);
+      document.removeEventListener("mouseup", onUp, true);
+      if (!moved) return;
+      shapeDragged = true;
+      setTimeout(() => (shapeDragged = false), 0); // swallow the trailing click
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      nodes.forEach((n) => n.removeAttribute("transform"));
+      (c.anchor.shapes || []).forEach((s) => {
+        s.points = s.points.map((p) => ({ x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
+      });
+      c.updatedAt = Date.now();
+      mutatePage((entry) => {
+        const t = (entry.comments || []).find((x) => x.id === id);
+        if (t) {
+          t.anchor.shapes = c.anchor.shapes;
+          t.updatedAt = c.updatedAt;
+        }
+      });
+    };
+    document.addEventListener("mousemove", onMove, true);
+    document.addEventListener("mouseup", onUp, true);
   }
 
   // Select an on-page drawing/pin so it can be deleted (Del key or the menu).
@@ -1078,6 +1139,42 @@
     }
   }
 
+  // Formatting is stored as Markdown (**bold**, *italic*, ~~strike~~) rather
+  // than HTML: it round-trips through the Markdown/CSV/plaintext exports, and
+  // rendering stays safe because we escape first and only then apply these.
+  function renderBody(text) {
+    return esc(text)
+      .replace(/\*\*([^\n*]+)\*\*/g, "<strong>$1</strong>")
+      .replace(/(^|[^*])\*([^\n*]+)\*/g, "$1<em>$2</em>")
+      .replace(/~~([^\n~]+)~~/g, "<del>$1</del>");
+  }
+
+  function formatBarHtml(id) {
+    const btn = (fmt, label, title) =>
+      `<button class="sn-fmt" data-action="format" data-fmt="${fmt}" data-id="${esc(id)}" title="${title}">${label}</button>`;
+    return `<div class="sn-fmt-bar">
+        ${btn("bold", "<strong>B</strong>", "Bold")}
+        ${btn("italic", "<em>I</em>", "Italic")}
+        ${btn("strike", "<del>S</del>", "Strikethrough")}
+      </div>`;
+  }
+
+  // Wrap the textarea's selection in the given Markdown markers.
+  function applyFormat(id, fmt) {
+    const ta = shadow.querySelector(`.sn-textarea[data-id="${cssEscape(id)}"]`);
+    if (!ta) return;
+    const marks = { bold: "**", italic: "*", strike: "~~" };
+    const m = marks[fmt];
+    if (!m) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const chosen = ta.value.slice(start, end) || "text";
+    ta.value = ta.value.slice(0, start) + m + chosen + m + ta.value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + m.length, start + m.length + chosen.length);
+    scheduleBodySave();
+  }
+
   function editorHtml(id, value, placeholder, kind) {
     // A root note in auto-save mode is already persisted, so its editor offers
     // Done (close) and Delete rather than Save/Cancel. Replies and explicit-save
@@ -1087,7 +1184,8 @@
     const secondary = auto
       ? `<button class="sn-btn sn-btn-danger" data-action="delete" data-id="${esc(id)}">Delete</button>`
       : `<button class="sn-btn" data-action="cancel" data-id="${esc(id)}">Cancel</button>`;
-    return `<textarea class="sn-textarea" data-id="${esc(id)}" placeholder="${esc(placeholder)}" rows="3">${esc(value || "")}</textarea>
+    return `${formatBarHtml(id)}
+      <textarea class="sn-textarea" data-id="${esc(id)}" placeholder="${esc(placeholder)}" rows="3">${esc(value || "")}</textarea>
       <div class="sn-card-actions">
         <button class="sn-btn sn-btn-primary" data-action="save" data-id="${esc(id)}">${primary}</button>
         ${secondary}
@@ -1104,7 +1202,7 @@
       return `<div class="sn-reply sn-reply-editing">${editorHtml(reply.id, reply.body, "Write a reply…", "reply")}</div>`;
     }
     return `<div class="sn-reply">
-        <div class="sn-reply-body">${esc(reply.body)}</div>
+        <div class="sn-reply-body">${renderBody(reply.body)}</div>
         <div class="sn-reply-meta">
           <span>${esc(formatTime(reply.updatedAt || reply.createdAt))}</span>
           <span class="sn-card-tools">
@@ -1115,13 +1213,28 @@
       </div>`;
   }
 
+  // A drawing's colour lives on its shapes; text/element notes carry their own.
+  function noteColor(c) {
+    if (c.anchor && c.anchor.type === "region") {
+      const shape = (c.anchor.shapes || [])[0];
+      if (shape && shape.color) return shape.color;
+    }
+    return c.color || settings.highlightColor;
+  }
+
   function paletteHtml(c) {
-    const current = c.color || settings.highlightColor;
+    const current = noteColor(c);
+    const preset = HIGHLIGHT_PALETTE.some((col) => col.toLowerCase() === current.toLowerCase());
     const swatches = HIGHLIGHT_PALETTE.map(
       (col) =>
         `<button class="sn-swatch${col.toLowerCase() === current.toLowerCase() ? " sel" : ""}" style="background:${col}" title="${col}" data-action="set-color" data-id="${esc(c.id)}" data-color="${col}"></button>`
     ).join("");
-    return `<div class="sn-palette">${swatches}</div>`;
+    // Custom colour: same round shape, filled with the classic rainbow wheel,
+    // opening the native picker.
+    const custom =
+      `<button class="sn-swatch sn-swatch-custom${preset ? "" : " sel"}" title="Custom colour" data-action="custom-color" data-id="${esc(c.id)}"></button>` +
+      `<input class="sn-color-input" type="color" value="${esc(current)}" data-id="${esc(c.id)}" aria-hidden="true" tabindex="-1" />`;
+    return `<div class="sn-palette">${swatches}${custom}</div>`;
   }
 
   // The head of a card: a quote for text notes, a typed descriptor for element
@@ -1146,7 +1259,7 @@
   function cardHtml(c, orphaned) {
     const isDraft = draft && draft.id === c.id;
     const editingRoot = c.id === editingId;
-    const color = c.color || settings.highlightColor;
+    const color = noteColor(c);
     const classes = ["sn-card"];
     if (c.resolved) classes.push("sn-card-resolved");
     if (orphaned) classes.push("sn-card-orphan");
@@ -1162,7 +1275,7 @@
         </article>`;
     }
 
-    const bodyBlock = `<div class="sn-body">${c.body ? esc(c.body) : '<span class="sn-body-empty">No note text</span>'}</div>`;
+    const bodyBlock = `<div class="sn-body">${c.body ? renderBody(c.body) : '<span class="sn-body-empty">No note text</span>'}</div>`;
 
     // A draft is never persisted yet, so no thread/tools until it's saved.
     if (isDraft) {
@@ -1461,6 +1574,15 @@
       case "set-color":
         setColor(id, el.dataset.color);
         break;
+      case "format":
+        applyFormat(id, el.dataset.fmt);
+        break;
+      case "custom-color": {
+        // Open the browser's own colour picker via the paired hidden input.
+        const input = shadow.querySelector(`.sn-color-input[data-id="${cssEscape(id)}"]`);
+        if (input) input.click();
+        break;
+      }
       case "resolve":
         toggleResolve(id);
         break;
@@ -1647,19 +1769,26 @@
     });
   }
 
-  function setColor(commentId, color) {
+  function setColor(commentId, color, keepOpen) {
     if (!/^#([A-Fa-f0-9]{6})$/.test(String(color || ""))) return;
-    colorPickerId = null;
+    if (!keepOpen) colorPickerId = null;
     const c = comments.find((x) => x.id === commentId) || (draft && draft.id === commentId ? draft : null);
     if (!c) return;
     c.color = color;
+    // For a drawing, the visible colour is its ink — recolour the shapes too.
+    const isRegion = c.anchor && c.anchor.type === "region";
+    if (isRegion) (c.anchor.shapes || []).forEach((s) => (s.color = color));
     if (draft && draft.id === commentId) {
       render();
       return;
     }
     mutatePage((e) => {
       const target = (e.comments || []).find((x) => x.id === commentId);
-      if (target) target.color = color;
+      if (!target) return;
+      target.color = color;
+      if (target.anchor && target.anchor.type === "region") {
+        (target.anchor.shapes || []).forEach((s) => (s.color = color));
+      }
     });
   }
 
@@ -1771,16 +1900,33 @@
         hideAddButton();
         return;
       }
+      // Selecting text that's already highlighted should edit that note rather
+      // than stack a second one on top of it.
+      hoverEditId = noteIdForSelection(sel);
       pendingRect = rect;
       showAddButton(rect);
     });
+  }
+
+  // The note whose highlight the selection sits inside, if any.
+  function noteIdForSelection(sel) {
+    const inHighlight = (node) => {
+      const el = node && (node.nodeType === 1 ? node : node.parentElement);
+      const hl = el && el.closest && el.closest(".__sidenote_hl");
+      return hl ? hl.getAttribute("data-sidenote-id") : null;
+    };
+    return inHighlight(sel.anchorNode) || inHighlight(sel.focusNode);
   }
 
   function showAddButton(rect) {
     if (!shadow) return;
     const btn = shadow.getElementById("sn-add");
     btn.hidden = false;
-    btn.textContent = reanchorId ? "↪ Re-anchor here" : "💬 Add note";
+    btn.textContent = reanchorId
+      ? "↪ Re-anchor here"
+      : hoverEditId
+      ? "✏️ Edit note"
+      : "💬 Add note";
     // Sit just above the selection (below it when there's no room up top).
     const top = rect.top - 40 < 8 ? rect.bottom + window.scrollY + 8 : rect.top + window.scrollY - 40;
     const left = Math.max(8, Math.min(window.innerWidth - 130, rect.left + window.scrollX));
@@ -1793,9 +1939,22 @@
     const btn = shadow.getElementById("sn-add");
     if (btn) btn.hidden = true;
     pendingRect = null;
+    hoverEditId = null;
   }
 
   function onAddClick() {
+    // Selection inside an existing highlight → edit that note.
+    if (hoverEditId && !reanchorId) {
+      const id = hoverEditId;
+      hideAddButton();
+      const sel0 = window.getSelection();
+      if (sel0) sel0.removeAllRanges();
+      editingId = id;
+      focusPending = true;
+      colorPickerId = null;
+      focusCard(id);
+      return;
+    }
     const anchor = anchorFromSelection();
     if (!anchor) {
       showToast("Select some text on the page first.");
@@ -2110,9 +2269,15 @@
   /* --------------------------------------------------------- Wiring */
   document.addEventListener("selectionchange", onSelectionChange);
   document.addEventListener("click", (e) => {
-    // Click on a text highlight → jump to its card.
+    // Click a text highlight → open its note for editing.
     const hl = e.target.closest && e.target.closest(".__sidenote_hl");
-    if (hl && active) focusCard(hl.getAttribute("data-sidenote-id"));
+    if (hl && active) {
+      const id = hl.getAttribute("data-sidenote-id");
+      editingId = id;
+      focusPending = true;
+      colorPickerId = null;
+      focusCard(id);
+    }
   });
   // Hover a text highlight → emphasize its card (and vice versa, wired below).
   document.addEventListener("mouseover", (e) => {
@@ -2510,6 +2675,27 @@
     }
     .sn-swatch:hover { transform: scale(1.12); }
     .sn-swatch.sel { box-shadow: 0 0 0 2px var(--accent); }
+    /* Custom colour: the classic rainbow wheel, same round shape as the presets. */
+    .sn-swatch-custom {
+      background: conic-gradient(#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000);
+      position: relative;
+    }
+    .sn-swatch-custom::after {
+      content: ""; position: absolute; inset: 4px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0) 70%);
+    }
+    .sn-color-input { position: absolute; width: 0; height: 0; opacity: 0; border: none; padding: 0; }
+
+    /* Formatting toolbar above a note's editor */
+    .sn-fmt-bar { display: flex; gap: 4px; margin-bottom: 6px; }
+    .sn-fmt {
+      min-width: 24px; height: 24px; border-radius: 5px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-secondary); cursor: pointer;
+      font-size: 12px; line-height: 1; padding: 0 6px;
+    }
+    .sn-fmt:hover { background: var(--surface-2); color: var(--text); }
+    .sn-body strong, .sn-reply-body strong { font-weight: 700; }
+    .sn-body del, .sn-reply-body del { opacity: 0.75; }
 
     .sn-foot {
       display: flex; align-items: center; justify-content: space-between; gap: 16px;
