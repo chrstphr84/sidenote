@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.22.0]
+
+### Added
+- Consolidate notes: Shift+click several notes and choose Consolidate to merge them into one note that points at all of their highlights and drawings. Their text is joined with a plain “---” line you can edit or remove.
+- Link notes: Shift+click several and choose Link. Linked notes stay next to each other in the sidebar and in All notes, and each gets a 🔗 button that steps to the next one.
+- Consolidating and linking can both be undone with ⌘Z / Ctrl+Z.
+
+### Changed
+- A note can now point at several places on a page. Existing notes are upgraded automatically and keep working.
+
 ## [0.21.0]
 
 ### Added
@@ -205,6 +215,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.22.0]: #0220
 [0.21.0]: #0210
 [0.20.0]: #0200
 [0.19.0]: #0190

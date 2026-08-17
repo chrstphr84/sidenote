@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.22.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Consolidate notes: Shift+click several notes and choose Consolidate to merge them into one note that points at all of their highlights and drawings. Their text is joined with a plain “---” line you can edit or remove.",
+          "Link notes: Shift+click several and choose Link. Linked notes stay next to each other in the sidebar and in All notes, and each gets a 🔗 button that steps to the next one.",
+          "Consolidating and linking can both be undone with ⌘Z / Ctrl+Z."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "A note can now point at several places on a page. Existing notes are upgraded automatically and keep working."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.21.0",
     "sections": [
       {

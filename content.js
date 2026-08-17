@@ -466,17 +466,6 @@
     return n;
   }
 
-  function renderPin(comment, el) {
-    overlayItems.push({ comment, el });
-  }
-
-  function renderRegion(comment) {
-    const el = comment.anchor.relativeTo === "element" ? findElement(comment.anchor.target) : null;
-    if (comment.anchor.relativeTo === "element" && !el) return false;
-    overlayItems.push({ comment, el });
-    return true;
-  }
-
   // Draw/position every overlay item. `fixedOnly` redraws just the viewport
   // layer — the document layer is scroll-invariant, so scrolling never touches
   // it (that's the whole point).
@@ -493,7 +482,7 @@
     const sx = window.scrollX;
     const sy = window.scrollY;
 
-    overlayItems.forEach(({ comment, el }) => {
+    overlayItems.forEach(({ comment, el, anchor, index }) => {
       // Page-anchored drawings are already in page coords → document layer.
       const pinned = el ? isViewportFixed(el) : false;
       if (fixedOnly && !pinned) return;
@@ -503,7 +492,7 @@
       const oy = pinned ? 0 : sy;
       const color = comment.color || settings.highlightColor;
 
-      if (comment.anchor.type === "element" && el) {
+      if (anchor.type === "element" && el) {
         const r = el.getBoundingClientRect();
         svg.appendChild(
           svgNode("rect", {
@@ -519,11 +508,11 @@
             class: "sn-ov-pin", "data-sidenote-id": comment.id
           })
         );
-      } else if (comment.anchor.type === "region") {
+      } else if (anchor.type === "region") {
         const origin = el
           ? { left: el.getBoundingClientRect().left + ox, top: el.getBoundingClientRect().top + oy }
           : { left: 0, top: 0 }; // page coords, drawn straight onto the doc layer
-        (comment.anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin));
+        (anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin, index));
       }
     });
 
@@ -537,12 +526,15 @@
     }
   }
 
-  function drawShape(svg, comment, shape, origin) {
+  function drawShape(svg, comment, shape, origin, anchorIndex) {
     const pts = shape.points.map((p) => ({ x: p.x + origin.left, y: p.y + origin.top }));
     const common = {
       fill: "none", stroke: shape.color, "stroke-width": shape.width,
       "stroke-linecap": "round", "stroke-linejoin": "round",
-      class: "sn-ov-shape", "data-sidenote-id": comment.id
+      class: "sn-ov-shape", "data-sidenote-id": comment.id,
+      // Which of the note's anchors this shape belongs to, so dragging moves
+      // only that drawing on a consolidated note.
+      "data-sidenote-anchor": anchorIndex == null ? "" : String(anchorIndex)
     };
     if (shape.kind === "rect" && pts.length >= 2) {
       const [a, b] = pts;
@@ -792,19 +784,28 @@
     unwrapAll();
     clearOverlay();
     const orphaned = new Set();
+    // A note can carry several anchors; it's only orphaned if none resolve.
     renderList().forEach((c) => {
-      const type = c.anchor.type || "text";
-      if (type === "text") {
-        const range = findRange(c.anchor);
-        if (!range) return orphaned.add(c.id);
-        if (highlightRange(range, c).length === 0) orphaned.add(c.id);
-      } else if (type === "element") {
-        const el = findElement(c.anchor.target);
-        if (!el) return orphaned.add(c.id);
-        renderPin(c, el);
-      } else if (type === "region") {
-        if (!renderRegion(c)) orphaned.add(c.id);
-      }
+      let placed = 0;
+      (c.anchors || []).forEach((a, i) => {
+        const type = a.type || "text";
+        if (type === "text") {
+          const range = findRange(a);
+          if (range && highlightRange(range, c).length > 0) placed += 1;
+        } else if (type === "element") {
+          const el = findElement(a.target);
+          if (el) {
+            overlayItems.push({ comment: c, el, anchor: a, index: i });
+            placed += 1;
+          }
+        } else if (type === "region") {
+          const el = a.relativeTo === "element" ? findElement(a.target) : null;
+          if (a.relativeTo === "element" && !el) return;
+          overlayItems.push({ comment: c, el, anchor: a, index: i });
+          placed += 1;
+        }
+      });
+      if (placed === 0) orphaned.add(c.id);
     });
     drawOverlay();
     return orphaned;
@@ -866,7 +867,9 @@
   }
 
   function commentsForSide(side) {
-    return renderList().filter((c) => panelSideFor(c) === side);
+    // Linked notes are kept adjacent (matters for the list layout; the aligned
+    // layout positions by anchor).
+    return orderLinked(renderList().filter((c) => panelSideFor(c) === side));
   }
 
   /* -------------------------------------------------------- Rendering */
@@ -986,7 +989,10 @@
     const id = e.target.getAttribute && e.target.getAttribute("data-sidenote-id");
     if (!id || id === "__preview__") return;
     const c = comments.find((x) => x.id === id);
-    if (!c || c.anchor.type !== "region") return; // only drawings move
+    if (!c) return;
+    const ai = Number(e.target.getAttribute("data-sidenote-anchor"));
+    const anchor = (c.anchors || [])[Number.isFinite(ai) ? ai : 0];
+    if (!anchor || anchor.type !== "region") return; // only drawings move
 
     e.preventDefault();
     const startX = e.clientX;
@@ -1010,14 +1016,14 @@
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       nodes.forEach((n) => n.removeAttribute("transform"));
-      (c.anchor.shapes || []).forEach((s) => {
-        s.points = s.points.map((p) => ({ x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
+      (anchor.shapes || []).forEach((sh) => {
+        sh.points = sh.points.map((p) => ({ x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
       });
       c.updatedAt = Date.now();
       mutatePage((entry) => {
         const t = (entry.comments || []).find((x) => x.id === id);
         if (t) {
-          t.anchor.shapes = c.anchor.shapes;
+          t.anchors = c.anchors;
           t.updatedAt = c.updatedAt;
         }
       });
@@ -1226,8 +1232,9 @@
 
   // A drawing's colour lives on its shapes; text/element notes carry their own.
   function noteColor(c) {
-    if (c.anchor && c.anchor.type === "region") {
-      const shape = (c.anchor.shapes || [])[0];
+    const region = (c.anchors || []).find((a) => a.type === "region");
+    if (region) {
+      const shape = (region.shapes || [])[0];
       if (shape && shape.color) return shape.color;
     }
     return c.color || settings.highlightColor;
@@ -1251,7 +1258,7 @@
   // The head of a card: a quote for text notes, a typed descriptor for element
   // and drawing notes.
   function anchorHeadHtml(c) {
-    const a = c.anchor;
+    const a = primaryAnchor(c) || {};
     if ((a.type || "text") === "text") {
       const quote = esc(a.exact.length > 140 ? a.exact.slice(0, 140) + "…" : a.exact);
       return `<blockquote class="sn-quote" data-action="goto" data-id="${esc(c.id)}">${quote}</blockquote>`;
@@ -1306,6 +1313,7 @@
         <span class="sn-card-tools">
           <button class="sn-icon sn-color-dot" title="Highlight color" data-action="color" data-id="${esc(c.id)}" style="color:${color}">●</button>
           <button class="sn-icon" title="${c.resolved ? "Reopen" : "Resolve"}" data-action="resolve" data-id="${esc(c.id)}">${c.resolved ? "↩" : "✓"}</button>
+          ${c.linkGroup ? `<button class="sn-icon" title="Go to next linked note" data-action="next-linked" data-id="${esc(c.id)}">🔗</button>` : ""}
           ${sidesInUse().length > 1 ? `<button class="sn-icon" title="Move to other side" data-action="flip" data-id="${esc(c.id)}">⇄</button>` : ""}
           <button class="sn-icon" title="Edit note" data-action="edit" data-id="${esc(c.id)}">✎</button>
           <button class="sn-icon sn-icon-danger" title="Delete note" data-action="delete" data-id="${esc(c.id)}">🗑</button>
@@ -1313,7 +1321,7 @@
       </div>`;
     const palette = colorPickerId === c.id ? paletteHtml(c) : "";
 
-    const isText = (c.anchor.type || "text") === "text";
+    const isText = ((primaryAnchor(c) || {}).type || "text") === "text";
     let orphanRow = "";
     if (orphaned) {
       if (reanchorId === c.id) {
@@ -1364,8 +1372,13 @@
         </header>
         ${
           multiSelected.size
-            ? `<div class="sn-multibar">${multiSelected.size} selected
-                 <button class="sn-link" data-action="clear-multi">Clear</button>
+            ? `<div class="sn-multibar">
+                 <span>${multiSelected.size} selected</span>
+                 <span class="sn-multibar-actions">
+                   ${multiSelected.size > 1 ? `<button class="sn-link" data-action="consolidate">Consolidate</button>` : ""}
+                   ${multiSelected.size > 1 ? `<button class="sn-link" data-action="link">Link</button>` : ""}
+                   <button class="sn-link" data-action="clear-multi">Clear</button>
+                 </span>
                </div>`
             : ""
         }
@@ -1614,6 +1627,15 @@
         multiSelected.clear();
         render();
         break;
+      case "consolidate":
+        consolidateSelected();
+        break;
+      case "link":
+        linkSelected();
+        break;
+      case "next-linked":
+        gotoNextLinked(id);
+        break;
       case "custom-color": {
         // Open the browser's own colour picker via the paired hidden input.
         const input = shadow.querySelector(`.sn-color-input[data-id="${cssEscape(id)}"]`);
@@ -1654,9 +1676,9 @@
     const spans = Array.from(document.querySelectorAll(`.__sidenote_hl[data-sidenote-id="${cssEscape(id)}"]`));
     if (spans.length) {
       spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    } else if (c && c.anchor.type !== "text") {
-      const el = c.anchor.type === "element" ? findElement(c.anchor.target)
-        : c.anchor.relativeTo === "element" ? findElement(c.anchor.target) : null;
+    } else if (c && (primaryAnchor(c) || {}).type !== "text") {
+      const pa = primaryAnchor(c) || {};
+      const el = pa.type === "element" || pa.relativeTo === "element" ? findElement(pa.target) : null;
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
       else {
         showToast("This note's target wasn't found on the page.");
@@ -1813,8 +1835,9 @@
     if (!c) return;
     c.color = color;
     // For a drawing, the visible colour is its ink — recolour the shapes too.
-    const isRegion = c.anchor && c.anchor.type === "region";
-    if (isRegion) (c.anchor.shapes || []).forEach((s) => (s.color = color));
+    (c.anchors || []).forEach((a) => {
+      if (a.type === "region") (a.shapes || []).forEach((sh) => (sh.color = color));
+    });
     if (draft && draft.id === commentId) {
       render();
       return;
@@ -1823,9 +1846,9 @@
       const target = (e.comments || []).find((x) => x.id === commentId);
       if (!target) return;
       target.color = color;
-      if (target.anchor && target.anchor.type === "region") {
-        (target.anchor.shapes || []).forEach((s) => (s.color = color));
-      }
+      (target.anchors || []).forEach((a) => {
+        if (a.type === "region") (a.shapes || []).forEach((sh) => (sh.color = color));
+      });
     });
   }
 
@@ -1878,6 +1901,73 @@
     });
   }
 
+  /* -------------------------------------------- Consolidate & link */
+  // Merge the selected notes into one that points at all of their page
+  // annotations. Bodies are joined with a plain `---` line, which is just text
+  // in the merged note, so it can be edited away or replaced.
+  function consolidateSelected() {
+    const picked = comments.filter((c) => multiSelected.has(c.id));
+    if (picked.length < 2) return;
+    picked.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+    const keep = picked[0];
+    const rest = picked.slice(1);
+    const before = picked.map((c) => JSON.parse(JSON.stringify(c)));
+
+    const merged = {
+      ...keep,
+      anchors: picked.reduce((acc, c) => acc.concat(c.anchors || []), []),
+      body: picked.map((c) => c.body).filter(Boolean).join("\n\n---\n\n"),
+      replies: picked.reduce((acc, c) => acc.concat(c.replies || []), []),
+      updatedAt: Date.now()
+    };
+    delete merged.linkGroup; // one note can't be linked to its former selves
+
+    const removedIds = rest.map((c) => c.id);
+    comments = comments.filter((c) => !removedIds.includes(c.id)).map((c) => (c.id === keep.id ? merged : c));
+    multiSelected.clear();
+    pushUndo({ kind: "restore", comments: before, addedId: merged.id });
+    mutatePage((e) => {
+      e.comments = (e.comments || [])
+        .filter((c) => !removedIds.includes(c.id))
+        .map((c) => (c.id === keep.id ? merged : c));
+    });
+    showToast(`Consolidated ${picked.length} notes.`);
+  }
+
+  // Link the selected notes: they share a group, stay adjacent in listings, and
+  // each gets a 🔗 that steps to the next one.
+  function linkSelected() {
+    const picked = comments.filter((c) => multiSelected.has(c.id));
+    if (picked.length < 2) return;
+    const before = picked.map((c) => JSON.parse(JSON.stringify(c)));
+    // Reuse an existing group if any of the selection already belongs to one.
+    const group = picked.find((c) => c.linkGroup)?.linkGroup || genId("grp");
+    const ids = picked.map((c) => c.id);
+    comments.forEach((c) => {
+      if (ids.includes(c.id)) c.linkGroup = group;
+    });
+    multiSelected.clear();
+    pushUndo({ kind: "restore", comments: before });
+    mutatePage((e) => {
+      (e.comments || []).forEach((c) => {
+        if (ids.includes(c.id)) c.linkGroup = group;
+      });
+    });
+    showToast(`Linked ${picked.length} notes.`);
+  }
+
+  // Step to the next note in this one's link group (wrapping around).
+  function gotoNextLinked(id) {
+    const c = comments.find((x) => x.id === id);
+    if (!c || !c.linkGroup) return;
+    const group = orderLinked(comments).filter((x) => x.linkGroup === c.linkGroup);
+    if (group.length < 2) return;
+    const next = group[(group.findIndex((x) => x.id === id) + 1) % group.length];
+    gotoHighlight(next.id);
+    focusCard(next.id);
+  }
+
   /* ------------------------------------------------------------- Undo */
   function pushUndo(action) {
     undoStack.push(action);
@@ -1898,7 +1988,17 @@
       showToast("Nothing to undo");
       return;
     }
-    if (action.kind === "add") {
+    if (action.kind === "restore" && Array.isArray(action.comments)) {
+      // Undo a consolidate/link: drop anything it created and put the
+      // originals back exactly as they were.
+      const ids = action.comments.map((c) => c.id);
+      comments = comments.filter((c) => !ids.includes(c.id) && c.id !== action.addedId).concat(action.comments);
+      mutatePage((e) => {
+        e.comments = (e.comments || [])
+          .filter((c) => !ids.includes(c.id) && c.id !== action.addedId)
+          .concat(action.comments);
+      });
+    } else if (action.kind === "add") {
       deleteComment(action.id, true);
     } else if (action.kind === "remove" && action.comment) {
       const c = action.comment;
@@ -2021,12 +2121,12 @@
       render();
       return;
     }
-    c.anchor = anchor;
+    c.anchors = [anchor].concat((c.anchors || []).slice(1));
     c.updatedAt = Date.now();
     mutatePage((e) => {
       const target = (e.comments || []).find((x) => x.id === id);
       if (target) {
-        target.anchor = anchor;
+        target.anchors = c.anchors;
         target.updatedAt = c.updatedAt;
       }
     });
@@ -2137,7 +2237,7 @@
       : inUse[0];
     const note = {
       id: genId("note"),
-      anchor,
+      anchors: [anchor],
       body: "",
       side,
       color: o.color || settings.highlightColor,
@@ -2637,8 +2737,10 @@
     .sn-card-orphan { border-style: dashed; }
     .sn-card-hover { border-color: var(--accent); }
     .sn-card-multi { box-shadow: 0 0 0 2px var(--accent); }
+    .sn-multibar-actions { display: flex; gap: 10px; }
     .sn-multibar {
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      flex-wrap: wrap;
       padding: 6px 14px; font-size: 12px; color: var(--text-secondary);
       background: var(--surface-2); border-bottom: 1px solid var(--border);
     }

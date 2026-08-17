@@ -196,10 +196,21 @@ function normalizeAnchor(raw) {
 }
 
 function normalizeComment(raw) {
-  if (!raw || typeof raw !== "object" || !raw.anchor) return null;
+  if (!raw || typeof raw !== "object") return null;
+  // A note can point at several page annotations (consolidation). Legacy notes
+  // stored a single `anchor` — migrate those into the anchors[] model.
+  const rawAnchors = Array.isArray(raw.anchors)
+    ? raw.anchors
+    : raw.anchor
+    ? [raw.anchor]
+    : [];
+  const anchors = rawAnchors.filter(Boolean).map(normalizeAnchor);
+  if (anchors.length === 0) return null;
   return {
     id: String(raw.id || genId("note")),
-    anchor: normalizeAnchor(raw.anchor),
+    anchors,
+    // Notes sharing a linkGroup are linked: kept adjacent and navigable.
+    linkGroup: typeof raw.linkGroup === "string" && raw.linkGroup ? raw.linkGroup : undefined,
     body: String(raw.body || ""),
     side: raw.side === "left" ? "left" : "right",
     color: /^#([A-Fa-f0-9]{6})$/.test(String(raw.color || "")) ? raw.color : undefined,
@@ -312,6 +323,34 @@ function resolveTheme(pref) {
 }
 
 /* --------------------------------------------------------------- Misc */
+// The anchor a note is primarily represented by (its first).
+function primaryAnchor(c) {
+  return c && Array.isArray(c.anchors) ? c.anchors[0] : null;
+}
+
+// Order notes so linked ones sit together: a link group takes the position of
+// its earliest member, and its members follow in their existing order.
+function orderLinked(list) {
+  const out = [];
+  const seen = new Set();
+  (list || []).forEach((c) => {
+    if (seen.has(c.id)) return;
+    if (!c.linkGroup) {
+      seen.add(c.id);
+      out.push(c);
+      return;
+    }
+    list
+      .filter((x) => x.linkGroup === c.linkGroup)
+      .forEach((x) => {
+        if (seen.has(x.id)) return;
+        seen.add(x.id);
+        out.push(x);
+      });
+  });
+  return out;
+}
+
 // "#rrggbb" + alpha → "rgba(r, g, b, a)". Used for highlight fills so page text
 // stays readable through the highlight.
 function hexWithAlpha(hex, alpha) {

@@ -64,15 +64,20 @@ work lands before the features that depend on it. ✓ = shipped.
 - **Auto-hide sidebar** option: reveal on hover-tool/context-menu trigger, auto-hide after
   save with a short, natural delay.
 
-### Group G — Multi-anchor notes (data-model work) ⚠️ foundational
-Both features below require a note to reference **multiple anchors**, which today is a
-one-anchor-per-note model. That change ripples into rendering, export, and the All-notes
-page — so the model change should land first, as its own task.
-- **Consolidate notes** — multi-select (Shift+click) → merge into one note pointing at all
-  their page annotations, bodies joined by an editable separator (e.g. `---`).
-- **Link notes** — a faint connector line between linked notes (without shoving neighbours
-  around) or a link icon that steps to the next linked note; in All notes, linked notes are
-  grouped adjacently and ordered after the first one on the page.
+### Group G — Multi-anchor notes — ✓ v0.22.0
+- **✓ Data model**: `anchor` → `anchors: []`, with legacy single-anchor notes migrated on
+  read (`normalizeComment`). `primaryAnchor()` is the helper for "represent this note".
+  Overlay items now carry their own `{anchor, index}`, and shapes are tagged with
+  `data-sidenote-anchor` so dragging moves only the drawing you grabbed. A note is orphaned
+  only when *none* of its anchors resolve.
+- **✓ Consolidate** — Shift+click ≥2 → merge into the oldest note: anchors and replies
+  concatenated, bodies joined with a literal `---` line (plain text, so it's editable or
+  removable exactly as asked). Undoable.
+- **✓ Link** — a shared `linkGroup` id (simpler and better-ordered than pairwise links).
+  `orderLinked()` keeps members adjacent in the sidebar and All-notes, and each linked card
+  gets a 🔗 that steps to the next member (wrapping). Undoable.
+- Chose the **link-icon** option over the connector line: the line is fragile in the aligned
+  layout where cards reposition per scroll. Connector line remains possible polish later.
 
 ### Group H — Export
 - **Export the annotated page as a screenshot alongside the notes** (from All notes).

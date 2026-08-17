@@ -53,14 +53,14 @@ function sortedKeys() {
 }
 
 function noteSnippet(c) {
-  const a = c.anchor || {};
+  const a = (Array.isArray(c.anchors) ? c.anchors[0] : c.anchor) || {};
   let head;
   if ((a.type || "text") === "text") {
     const q = String(a.exact || "");
     head = `“${esc(q.length > 90 ? q.slice(0, 90) + "…" : q)}”`;
   } else {
     // Element / drawing notes have no quoted text — show a typed descriptor.
-    head = esc(exportAnchorLabel(a));
+    head = esc(exportNoteLabel(c));
   }
   const body = c.body ? ` — ${esc(c.body.length > 120 ? c.body.slice(0, 120) + "…" : c.body)}` : "";
   const replies = (c.replies || []).length;
@@ -87,7 +87,7 @@ function render() {
       const total = (e.comments || []).length;
       const open = unresolvedCount(e);
       const title = e.title || hostLabel(e.url);
-      const notes = (e.comments || []).slice(0, 4).map(noteSnippet).join("");
+      const notes = orderLinked(e.comments || []).slice(0, 4).map(noteSnippet).join("");
       const more = total > 4 ? `<div class="page-note" style="border:none;color:var(--text-faint)">+${total - 4} more</div>` : "";
       const st = linkStatus[key];
       const badge = st ? ` · <span class="link-badge ${st.cls}">${esc(st.label)}</span>` : "";

@@ -36,6 +36,19 @@ function exportAnchorLabel(anchor) {
   return `Note on “${q.length > 60 ? q.slice(0, 60) + "…" : q}”`;
 }
 
+// A note may carry several anchors (consolidated); label by the first and note
+// how many others it points at.
+function exportPrimary(note) {
+  const anchors = Array.isArray(note.anchors) ? note.anchors : note.anchor ? [note.anchor] : [];
+  return anchors[0] || {};
+}
+
+function exportNoteLabel(note) {
+  const anchors = Array.isArray(note.anchors) ? note.anchors : note.anchor ? [note.anchor] : [];
+  const base = exportAnchorLabel(anchors[0]);
+  return anchors.length > 1 ? `${base} (+${anchors.length - 1} more)` : base;
+}
+
 function exportSortedKeys(pages) {
   return Object.keys(pages).sort((a, b) => (pages[b].updatedAt || 0) - (pages[a].updatedAt || 0));
 }
@@ -57,10 +70,9 @@ function toMarkdown(pages) {
     out.push(`<${p.url}>`);
     out.push(`_${(p.comments || []).length} note(s) · updated ${exportDate(p.updatedAt)}_`, "");
     (p.comments || []).forEach((note) => {
-      out.push(`### ${exportAnchorLabel(note.anchor)}${note.resolved ? " _(resolved)_" : ""}`);
-      if (note.anchor && note.anchor.type === "text" && note.anchor.exact) {
-        out.push(`> ${note.anchor.exact.replace(/\n/g, " ")}`, "");
-      }
+      out.push(`### ${exportNoteLabel(note)}${note.resolved ? " _(resolved)_" : ""}`);
+      const pa = exportPrimary(note);
+      if (pa.type === "text" && pa.exact) out.push(`> ${pa.exact.replace(/\n/g, " ")}`, "");
       out.push(note.body ? note.body : "_(no note text)_");
       (note.replies || []).forEach((r) => out.push(`- _reply_: ${r.body}`));
       out.push("");
@@ -81,10 +93,9 @@ function toPlaintext(pages) {
     out.push(p.url);
     out.push(`${(p.comments || []).length} note(s) — updated ${exportDate(p.updatedAt)}`, "");
     (p.comments || []).forEach((note) => {
-      out.push(`• ${exportAnchorLabel(note.anchor)}${note.resolved ? " (resolved)" : ""}`);
-      if (note.anchor && note.anchor.type === "text" && note.anchor.exact) {
-        out.push(`  "${note.anchor.exact.replace(/\n/g, " ")}"`);
-      }
+      out.push(`• ${exportNoteLabel(note)}${note.resolved ? " (resolved)" : ""}`);
+      const pa2 = exportPrimary(note);
+      if (pa2.type === "text" && pa2.exact) out.push(`  "${pa2.exact.replace(/\n/g, " ")}"`);
       out.push(`  ${note.body || "(no note text)"}`);
       (note.replies || []).forEach((r) => out.push(`    ↳ reply: ${r.body}`));
       out.push("");
@@ -109,8 +120,8 @@ function toCsv(pages) {
       rows.push([
         p.title || "",
         p.url || "",
-        (note.anchor && note.anchor.type) || "text",
-        exportAnchorLabel(note.anchor),
+        ((Array.isArray(note.anchors) ? note.anchors[0] : note.anchor) || {}).type || "text",
+        exportNoteLabel(note),
         note.body || "",
         note.resolved ? "yes" : "no",
         note.side || "",
@@ -139,14 +150,14 @@ function toExportHtml(pages) {
       const notes = (p.comments || [])
         .map((note) => {
           const quote =
-            note.anchor && note.anchor.type === "text" && note.anchor.exact
-              ? `<blockquote>${htmlEscape(note.anchor.exact)}</blockquote>`
+            exportPrimary(note).type === "text" && exportPrimary(note).exact
+              ? `<blockquote>${htmlEscape(exportPrimary(note).exact)}</blockquote>`
               : "";
           const replies = (note.replies || [])
             .map((r) => `<li>${htmlEscape(r.body)}</li>`)
             .join("");
           return `<div class="note${note.resolved ? " resolved" : ""}">
-            <div class="anchor">${htmlEscape(exportAnchorLabel(note.anchor))}${note.resolved ? " (resolved)" : ""}</div>
+            <div class="anchor">${htmlEscape(exportNoteLabel(note))}${note.resolved ? " (resolved)" : ""}</div>
             ${quote}
             <div class="body">${note.body ? htmlEscape(note.body) : "<em>(no note text)</em>"}</div>
             ${replies ? `<ul class="replies">${replies}</ul>` : ""}
