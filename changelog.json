@@ -1,5 +1,32 @@
 [
   {
+    "version": "0.18.0",
+    "sections": [
+      {
+        "label": "Added",
+        "items": [
+          "Highlight opacity setting — highlights are translucent by default so the text underneath stays readable, including light text on dark pages.",
+          "The sidebar title now opens All notes, and the version number at the bottom opens the changelog."
+        ]
+      },
+      {
+        "label": "Fixed",
+        "items": [
+          "The drawing palette is reliable again: Done dismisses it, the selected tool stays highlighted, and buttons no longer stop responding on pages that update themselves.",
+          "The drawing tool stays selected after each shape, so you can draw several in a row without re-picking it.",
+          "Note text is saved as you type, so it can't be lost by navigating away or starting another note."
+        ]
+      },
+      {
+        "label": "Changed",
+        "items": [
+          "The aligned sidebar layout (notes beside their highlights) is now the default.",
+          "Sidebar footer: the All notes link moved up to the title, and Settings now sits on the panel's outer edge."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.17.0",
     "sections": [
       {

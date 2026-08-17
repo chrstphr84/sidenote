@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.18.0]
+
+### Added
+- Highlight opacity setting — highlights are translucent by default so the text underneath stays readable, including light text on dark pages.
+- The sidebar title now opens All notes, and the version number at the bottom opens the changelog.
+
+### Fixed
+- The drawing palette is reliable again: Done dismisses it, the selected tool stays highlighted, and buttons no longer stop responding on pages that update themselves.
+- The drawing tool stays selected after each shape, so you can draw several in a row without re-picking it.
+- Note text is saved as you type, so it can't be lost by navigating away or starting another note.
+
+### Changed
+- The aligned sidebar layout (notes beside their highlights) is now the default.
+- Sidebar footer: the All notes link moved up to the title, and Settings now sits on the panel's outer edge.
+
 ## [0.17.0]
 
 ### Fixed
@@ -160,6 +175,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.18.0]: #0180
 [0.17.0]: #0170
 [0.16.0]: #0160
 [0.15.0]: #0150

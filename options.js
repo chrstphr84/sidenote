@@ -15,6 +15,8 @@ const els = {
   domainList: document.getElementById("domain-list"),
   domainListLabel: document.getElementById("domain-list-label"),
   color: document.getElementById("color"),
+  opacity: document.getElementById("opacity"),
+  opacityValue: document.getElementById("opacity-value"),
   width: document.getElementById("width"),
   showTab: document.getElementById("show-tab"),
   addSelection: document.getElementById("add-selection"),
@@ -62,6 +64,8 @@ function render() {
   els.domainListLabel.textContent = settings.domainMode === "allow" ? "Allowed domains" : "Blocked domains";
   if (document.activeElement !== els.domainList) els.domainList.value = (settings.domainList || []).join("\n");
   els.color.value = settings.highlightColor;
+  els.opacity.value = settings.highlightOpacity;
+  els.opacityValue.textContent = `${Math.round(settings.highlightOpacity * 100)}%`;
   els.width.value = settings.marginWidth;
   els.showTab.checked = settings.showTab;
   els.googleClientId.value = settings.googleClientId || "";
@@ -111,6 +115,16 @@ els.color.addEventListener("input", () => {
   settings.highlightColor = els.color.value;
 });
 els.color.addEventListener("change", () => {
+  settings = normalizeSettings(settings);
+  render();
+  save();
+});
+
+els.opacity.addEventListener("input", () => {
+  settings.highlightOpacity = Number(els.opacity.value);
+  els.opacityValue.textContent = `${Math.round(settings.highlightOpacity * 100)}%`;
+});
+els.opacity.addEventListener("change", () => {
   settings = normalizeSettings(settings);
   render();
   save();

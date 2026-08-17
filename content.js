@@ -13,6 +13,13 @@
 
 (() => {
   const HOST_ID = "__sidenote_root__";
+  const EXT_VERSION = (() => {
+    try {
+      return chrome.runtime.getManifest().version;
+    } catch (_) {
+      return "";
+    }
+  })();
   let PAGE_KEY = pageKeyFromHref(location.href);
 
   // Browser-internal / unsupported pages: do nothing.
@@ -280,7 +287,12 @@
       span.className = "__sidenote_hl";
       span.setAttribute("data-sidenote-id", comment.id);
       const color = comment.color || settings.highlightColor;
-      span.style.setProperty("background-color", color, "important");
+      // Translucent so the underlying text stays readable on any background.
+      span.style.setProperty(
+        "background-color",
+        hexWithAlpha(color, settings.highlightOpacity),
+        "important"
+      );
       if (comment.resolved) span.classList.add("__sidenote_hl_resolved");
       try {
         r.surroundContents(span);
@@ -531,32 +543,51 @@
     return settings.drawColor || DRAW_PALETTE[0];
   }
 
-  function renderPalette() {
-    if (!shadow) return;
-    const bar = shadow.getElementById("sn-palette");
-    bar.hidden = !paletteOpen;
-    if (!paletteOpen) return;
-    bar.style.top = `calc(${topInset}px + 12px)`;
+  // The palette's buttons are built ONCE and then only have their state toggled.
+  // Rebuilding innerHTML on every render destroyed the button between mousedown
+  // and mouseup (renders are frequent on dynamic pages), so clicks — including
+  // Done — silently never fired.
+  function buildPaletteOnce(bar) {
+    if (bar.firstChild) return;
     const tools = DRAW_TOOLS.map(
-      (t) =>
-        `<button class="sn-tool${(drawTool || "select") === t.tool ? " sel" : ""}" data-tool="${t.tool}" title="${t.title}">${t.glyph}</button>`
+      (t) => `<button class="sn-tool" data-tool="${t.tool}" title="${t.title}">${t.glyph}</button>`
     ).join("");
     const swatches = DRAW_PALETTE.map(
-      (c) =>
-        `<button class="sn-ink${c.toLowerCase() === drawColor().toLowerCase() ? " sel" : ""}" style="background:${c}" data-drawcolor="${c}" title="${c}"></button>`
+      (c) => `<button class="sn-ink" style="background:${c}" data-drawcolor="${c}" title="${c}"></button>`
     ).join("");
-    const canUndo = undoStack.length > 0 || Boolean(draft);
     bar.innerHTML =
       `<div class="sn-tools">${tools}</div>` +
       `<div class="sn-inks">${swatches}</div>` +
-      `<button class="sn-tool sn-palette-undo" data-tool="__undo" title="Undo (⌘Z / Ctrl+Z)"${canUndo ? "" : " disabled"}>↶</button>` +
+      `<button class="sn-tool sn-palette-undo" data-tool="__undo" title="Undo (⌘Z / Ctrl+Z)">↶</button>` +
       `<button class="sn-palette-done" data-tool="__done" title="Close the palette (Esc)">Done</button>`;
+  }
+
+  function renderPalette() {
+    if (!shadow) return;
+    const bar = shadow.getElementById("sn-palette");
+    if (!bar) return;
+    bar.hidden = !paletteOpen;
+    if (!paletteOpen) return;
+    buildPaletteOnce(bar);
+    if (!bar.style.top) bar.style.top = `${topInset + 12}px`;
+    // In-place state only — never replace nodes while the user may be clicking.
+    bar.querySelectorAll(".sn-tool[data-tool]").forEach((b) => {
+      const t = b.dataset.tool;
+      if (t.startsWith("__")) return;
+      b.classList.toggle("sel", (drawTool || "select") === t);
+    });
+    bar.querySelectorAll(".sn-ink").forEach((b) => {
+      b.classList.toggle("sel", b.dataset.drawcolor.toLowerCase() === drawColor().toLowerCase());
+    });
+    const undoBtn = bar.querySelector(".sn-palette-undo");
+    if (undoBtn) undoBtn.disabled = !(undoStack.length > 0 || draft);
   }
 
   function openPalette() {
     paletteOpen = true;
-    setTool(null);
-    renderPalette();
+    drawTool = null;
+    syncCaptureLayer();
+    render(); // also refreshes the header's pencil toggle state
   }
 
   // Fully tear down the drawing UI: any in-progress stroke, the armed tool, and
@@ -565,8 +596,8 @@
     endStroke();
     paletteOpen = false;
     drawTool = null;
-    if (shadow) shadow.getElementById("sn-draw-capture").hidden = true;
-    renderPalette();
+    syncCaptureLayer();
+    render();
   }
 
   function endStroke() {
@@ -576,11 +607,15 @@
     clearPreview();
   }
 
+  function syncCaptureLayer() {
+    if (!shadow) return;
+    const cap = shadow.getElementById("sn-draw-capture");
+    if (cap) cap.hidden = !drawTool;
+  }
+
   function setTool(tool) {
     drawTool = DRAW_TOOLS.some((t) => t.tool === tool) && tool !== "select" ? tool : null;
-    if (shadow) {
-      shadow.getElementById("sn-draw-capture").hidden = !drawTool;
-    }
+    syncCaptureLayer();
     renderPalette();
   }
 
@@ -660,9 +695,9 @@
     }
 
     const anchor = finalizeDrawing(d);
-    // Leave the capture layer so the user can type the note; reselect to draw more.
-    setTool(null);
-    createNote(anchor);
+    // Keep the tool armed so several shapes can be drawn in succession; the note
+    // is already saved, and text can be added at any time.
+    createNote(anchor, { keepFocus: false });
   }
 
   function finalizeDrawing(d) {
@@ -791,6 +826,11 @@
     shadow.getElementById("sn-add").addEventListener("click", onAddClick);
     const chromeEl = shadow.getElementById("sn-chrome");
     chromeEl.addEventListener("click", onChromeClick);
+    // Autosave note text as it's typed (debounced) so nothing is lost if the
+    // user navigates, closes the panel, or starts another note.
+    chromeEl.addEventListener("input", (e) => {
+      if (e.target.classList && e.target.classList.contains("sn-textarea")) scheduleBodySave();
+    });
     // Hover a card → emphasize its on-page target(s).
     chromeEl.addEventListener("mouseover", (e) => {
       const card = e.target.closest && e.target.closest(".sn-card");
@@ -1114,7 +1154,9 @@
       : `<p class="sn-empty">No notes on this side yet. Select text on the page, then choose <strong>Add note</strong>.</p>`;
     return `<aside class="sn-panel sn-panel-${side}">
         <header class="sn-head">
-          <div class="sn-brand"><span class="sn-brand-mark">▎</span> SideNote</div>
+          <button class="sn-brand" data-action="all-notes" title="Open All notes">
+            <span class="sn-brand-mark">▎</span> SideNote
+          </button>
           <div class="sn-head-tools">
             <button class="sn-icon${paletteOpen ? " sel" : ""}" title="Draw on page" data-action="draw">✎</button>
             <span class="sn-count">${list.filter((c) => !c.resolved).length}</span>
@@ -1122,9 +1164,9 @@
           </div>
         </header>
         <div class="sn-cards${aligned ? " sn-cards-aligned" : ""}">${cards}</div>
-        <footer class="sn-foot">
-          <button class="sn-link" data-action="all-notes">All notes</button>
+        <footer class="sn-foot sn-foot-${side}">
           <button class="sn-link" data-action="settings">Settings</button>
+          <button class="sn-link sn-version" data-action="changelog" title="View the changelog">v${esc(EXT_VERSION)}</button>
         </footer>
       </aside>`;
   }
@@ -1355,6 +1397,9 @@
         break;
       case "all-notes":
         chrome.runtime.sendMessage({ type: "sn-open-tab", page: "pages.html" });
+        break;
+      case "changelog":
+        chrome.runtime.sendMessage({ type: "sn-open-tab", page: "changelog.html" });
         break;
       case "settings":
         chrome.runtime.sendMessage({ type: "sn-open-tab", page: "options.html" });
@@ -1765,6 +1810,15 @@
     });
   }
 
+  // Debounced autosave while typing. Keeps a persisted note's text current
+  // without waiting for Save/Done (a draft in explicit-save mode stays local).
+  let bodySaveTimer = null;
+  function scheduleBodySave() {
+    if (settings.requireExplicitSave) return;
+    clearTimeout(bodySaveTimer);
+    bodySaveTimer = setTimeout(flushEditingBody, 400);
+  }
+
   // Flush the text of the note currently being edited into storage (auto-save
   // mode). Called before creating another note and when leaving the page, so
   // typed text is never lost even though there's no explicit Save.
@@ -1815,7 +1869,8 @@
       replies: []
     };
     editingId = note.id;
-    focusPending = true;
+    // Drawing in succession shouldn't yank focus into the editor each time.
+    focusPending = o.keepFocus !== false;
     colorPickerId = null;
     open[panelSideFor(note)] = true;
     if (settings.requireExplicitSave) {
@@ -2238,7 +2293,12 @@
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--surface);
     }
-    .sn-brand { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+    .sn-brand {
+      font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px;
+      background: none; border: none; padding: 0; color: var(--text); cursor: pointer;
+      font-family: inherit;
+    }
+    .sn-brand:hover { color: var(--accent); }
     .sn-brand-mark { color: var(--accent); font-weight: 700; }
     .sn-head-tools { display: flex; align-items: center; gap: 8px; }
     .sn-count {
@@ -2363,9 +2423,15 @@
     .sn-swatch.sel { box-shadow: 0 0 0 2px var(--accent); }
 
     .sn-foot {
-      display: flex; gap: 16px; padding: 10px 14px; border-top: 1px solid var(--border);
-      background: var(--surface);
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 10px 14px; border-top: 1px solid var(--border); background: var(--surface);
     }
+    /* Settings sits on the panel's outer edge: left in the left bar, right in
+       the right bar (the version line takes the inner edge). */
+    .sn-foot-left { flex-direction: row; }
+    .sn-foot-right { flex-direction: row-reverse; }
+    .sn-version { color: var(--text-faint); font-size: 11px; }
+    .sn-version:hover { color: var(--accent); }
     .sn-link {
       border: none; background: transparent; color: var(--accent); cursor: pointer;
       font-size: 12px; padding: 0; text-decoration: none;

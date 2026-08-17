@@ -21,15 +21,18 @@ const DEFAULT_SETTINGS = {
   masterEnabled: true,
   defaultSides: "right",
   highlightColor: "#ffe066",
+  // Highlights are translucent so the text underneath stays readable (a solid
+  // fill can hide light text on dark themes).
+  highlightOpacity: 0.4,
   marginWidth: 320,
   // How notes get added. At least one of addSelectionButton / addContextMenu
   // must stay on (enforced in normalizeSettings).
   addSelectionButton: true, // the floating "Add note" button on text selection
   addContextMenu: true, // the right-click menu items
   shortcutEnabled: true, // the keyboard command (rebindable at chrome://extensions/shortcuts)
-  // Sidebar layout: "list" (scrolling list, default) or "aligned" (each card
-  // tracks its anchor's vertical position on the page, Google-Docs style).
-  sidebarLayout: "list",
+  // Sidebar layout: "aligned" (each card tracks its anchor's vertical position,
+  // Google-Docs style — the default) or "list" (a plain scrolling list).
+  sidebarLayout: "aligned",
   // The speech-bubble margin tab (FAB).
   showTab: true, // show the open/close tab on the page edge
   fabPosition: 0.5, // vertical position as a fraction of the viewport (draggable)
@@ -65,6 +68,8 @@ function normalizeSettings(raw) {
     }
     const w = Number(raw.marginWidth);
     if (Number.isFinite(w)) s.marginWidth = Math.min(Math.max(Math.round(w), 240), 520);
+    const op = Number(raw.highlightOpacity);
+    if (Number.isFinite(op)) s.highlightOpacity = Math.min(1, Math.max(0.1, op));
     if (typeof raw.addSelectionButton === "boolean") s.addSelectionButton = raw.addSelectionButton;
     if (typeof raw.addContextMenu === "boolean") s.addContextMenu = raw.addContextMenu;
     if (typeof raw.shortcutEnabled === "boolean") s.shortcutEnabled = raw.shortcutEnabled;
@@ -304,6 +309,18 @@ function resolveTheme(pref) {
 }
 
 /* --------------------------------------------------------------- Misc */
+// "#rrggbb" + alpha → "rgba(r, g, b, a)". Used for highlight fills so page text
+// stays readable through the highlight.
+function hexWithAlpha(hex, alpha) {
+  const clean = String(hex || "").trim();
+  const a = Number.isFinite(Number(alpha)) ? Math.min(1, Math.max(0, Number(alpha))) : 1;
+  if (!/^#([A-Fa-f0-9]{6})$/.test(clean)) return clean || "transparent";
+  const r = parseInt(clean.slice(1, 3), 16);
+  const g = parseInt(clean.slice(3, 5), 16);
+  const b = parseInt(clean.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 function genId(prefix) {
   return `${prefix || "id"}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }

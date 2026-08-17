@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.17.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.18.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
@@ -24,8 +24,10 @@ This is an early **proof of concept** (v0.17.0). See [ROADMAP.md](ROADMAP.md) fo
   (`Alt+Shift+N`).
 - **Hover a note to see where it's linked** — its highlight or pin is emphasized on the
   page, and hovering the target emphasizes its note.
-- **Two sidebar layouts** (Settings): a scrolling **List** (default), or **Aligned** — each
-  note sits next to its highlight and follows it as you scroll, like Google Docs comments.
+- **Two sidebar layouts** (Settings): **Aligned** (default) — each note sits next to its
+  highlight and follows it as you scroll, like Google Docs comments — or a scrolling **List**.
+- **Translucent highlights** with an adjustable opacity, so the page text underneath stays
+  readable (including light text on dark pages).
 - **Threaded replies** on any note; edit or delete individual replies.
 - **Per-note highlight color** — pick from a palette on each note, and the on-page
   highlight updates to match.
@@ -54,8 +56,8 @@ This is an early **proof of concept** (v0.17.0). See [ROADMAP.md](ROADMAP.md) fo
   counting the open notes on the current page.
 - Per-note actions: **edit**, **resolve** (kept with a strikethrough, still deletable),
   **move to the other side**, and **delete**.
-- **All notes** page (its own tab) listing every commented page, with **remove single**,
-  **remove selected**, and **clear all**.
+- **All notes** page (its own tab, reachable from the sidebar title) listing every commented
+  page, with **remove single** and **remove selected**.
 - **Export** all or selected pages as **Markdown, plain text, CSV, PDF** (print view), or
   straight into a **Google Doc / Google Sheet** (using your own Google OAuth client,
   configured in Settings).

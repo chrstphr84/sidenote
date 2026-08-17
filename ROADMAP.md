@@ -4,6 +4,75 @@ Planned direction for SideNote, sequenced so foundational decisions land before
 the features that depend on them (to avoid uprooting work later). This is a
 living document; check it against `CHANGELOG.md` for what has actually shipped.
 
+## Backlog — usage feedback (2026-08-13)
+
+A large batch, sorted into implementation groups. Ordered so foundational/data-model
+work lands before the features that depend on it. ✓ = shipped.
+
+### Group A — Critical fixes (legibility + data loss + palette) — ✓ v0.18.0
+- **✓ Highlight opacity** — a solid highlight can hide the text under it (worst on dark
+  themes with light text). Alpha setting applied to highlight fills.
+- **✓ Note text not saved on creation** — typed text (and drawings) could be lost; text now
+  autosaves as you type (debounced), not just on explicit save/flush.
+- **✓ Palette hardening** — Done didn't dismiss, tool-selected state didn't render, tool
+  reset to highlight after each drawing. Single state → render path; tool now persists.
+- **✓ Drawing auto-saves on mouse-up and the tool stays armed** so several arrows can be
+  drawn in succession without re-selecting the tool each time.
+
+### Group B — Sidebar chrome (quick, low-risk) — ✓ v0.18.0
+- **✓ Title ("SideNote") links to All notes**; **✓ remove the bottom "All notes" link**.
+- **✓ Settings link moves to the panel's outer edge** (left in the left bar, right in the right).
+- **✓ Version number in faint text at the bottom, linking to the changelog.**
+- **✓ Aligned layout becomes the default.**
+
+### Group C — Rendering fluidity (architectural)
+- **Embed annotations in document coordinates** instead of a fixed overlay repainted per
+  scroll event. `position:absolute` at page coords lets the browser scroll drawings
+  natively (no JS per frame) — this is the real fix for "jumpy" drawings, and answers the
+  "embed into the HTML" question: yes, but as an absolutely-positioned layer we still own
+  (not written into the site's markup, which would break the page and be lost on reload).
+- **Aligned cards**: position via compositor-friendly `transform` and one rAF-batched read
+  per frame instead of `top` writes, to smooth comment jumpiness.
+- **Canvas/zoom apps (Figma, Miro)** — NOT generally solvable: the board is a WebGL canvas
+  with no DOM to anchor to and no observable zoom signal. Plan: detect canvas-dominant
+  pages and either anchor to the viewport (screen-sticky notes) or disable drawing there,
+  with a clear message. Do not promise content-tracking.
+
+### Group D — Editing & interaction
+- **Click an existing highlight to edit it** — the hover affordance becomes ✏️ "Edit note"
+  rather than "Add note".
+- **Click a drawing to select and move it** to a new position.
+- **Drawing line color shown in the note** where the highlight color swatch sits.
+- **Custom color picker** — an extra round swatch filled with the classic rainbow gradient
+  that opens a full picker.
+- **Rich text in comments** — bold, italic, strikethrough.
+
+### Group E — Keyboard
+- **Cmd+Enter / Ctrl+Enter saves**; **Esc cancels** (partly present).
+- **Shift+click** selects multiple notes in the sidebar (prerequisite for consolidation
+  and reordering).
+- **Hold Option (mac) / Alt (win) to reveal a hidden sidebar tab** (settings option).
+
+### Group F — Sidebar visibility
+- **Auto-hide sidebar** option: reveal on hover-tool/context-menu trigger, auto-hide after
+  save with a short, natural delay.
+
+### Group G — Multi-anchor notes (data-model work) ⚠️ foundational
+Both features below require a note to reference **multiple anchors**, which today is a
+one-anchor-per-note model. That change ripples into rendering, export, and the All-notes
+page — so the model change should land first, as its own task.
+- **Consolidate notes** — multi-select (Shift+click) → merge into one note pointing at all
+  their page annotations, bodies joined by an editable separator (e.g. `---`).
+- **Link notes** — a faint connector line between linked notes (without shoving neighbours
+  around) or a link icon that steps to the next linked note; in All notes, linked notes are
+  grouped adjacently and ordered after the first one on the page.
+
+### Group H — Export
+- **Export the annotated page as a screenshot alongside the notes** (from All notes).
+- **Indicators on page annotations** identifying which comment each belongs to (numbering),
+  needed for the screenshot to be readable.
+- **PDF export including the image.**
+
 ## Backlog — usage feedback (2026-07-26)
 
 Grouped and roughly ordered. Small/clear items marked ✓ shipped in v0.12.0.
