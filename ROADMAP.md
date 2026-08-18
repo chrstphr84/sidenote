@@ -270,3 +270,15 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Screenshot in export | 4+ | New |
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
+
+## Open from the 2026-08-18 report
+
+- **Drawings vanish on mouse-up / palette "Done" does nothing** — could NOT be reproduced
+  in a clean context (both pass). Strongly correlated with the "Extension context
+  invalidated" errors: a content script orphaned by an extension reload lost chrome.* and
+  poisoned the write chain (fixed in v0.23.0). **Re-test on freshly reloaded tabs**; if it
+  still happens there, capture the console output at the moment of the failed mouse-up.
+- **Default mode = text highlighting** — already the behaviour (closing the palette clears
+  the armed tool, and "Select" disarms without closing). Confirm after the v0.23.0 fixes.
+- Still queued: Group F (auto-hide sidebar), Group H (screenshot/PDF export with
+  per-annotation indicators).

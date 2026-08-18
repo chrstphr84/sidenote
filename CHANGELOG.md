@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.23.0]
+
+### Fixed
+- Notes and drawings could silently stop saving after the extension was updated while a page stayed open — every later save failed for that page. Saving now recovers on its own, and SideNote tells you to reload the page instead of erroring in the background.
+- ⌘Enter / Ctrl+Enter now saves the open note straight after drawing, without having to click the note first.
+
+### Added
+- Highlight colour — including a custom colour and an opacity slider — can now be set while you're creating a note, not just afterwards. Opacity is per-note; the Settings value stays the default.
+- ⌘B / Ctrl+B and ⌘I / Ctrl+I apply bold and italic in a note.
+
 ## [0.22.0]
 
 ### Added
@@ -215,6 +225,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.23.0]: #0230
 [0.22.0]: #0220
 [0.21.0]: #0210
 [0.20.0]: #0200

@@ -293,7 +293,7 @@
       // Translucent so the underlying text stays readable on any background.
       span.style.setProperty(
         "background-color",
-        hexWithAlpha(color, settings.highlightOpacity),
+        hexWithAlpha(color, comment.opacity != null ? comment.opacity : settings.highlightOpacity),
         "important"
       );
       if (comment.resolved) span.classList.add("__sidenote_hl_resolved");
@@ -828,8 +828,13 @@
   /* --------------------------------------------------------- Storage */
   let writeChain = Promise.resolve();
   function mutatePage(fn) {
-    writeChain = writeChain.then(async () => {
+    // .catch() keeps the chain healthy: without it, one rejection (e.g. the
+    // extension being reloaded under us) leaves writeChain permanently rejected
+    // and every later save silently never runs.
+    writeChain = writeChain.catch(() => {}).then(async () => {
+      if (!extensionAlive()) return handleExtensionGone();
       const pages = await getPages();
+      if (!pages) return handleExtensionGone();
       const existing = pages[PAGE_KEY];
       const e = existing || {
         url: `${location.origin}${location.pathname}${location.search}`,
@@ -913,15 +918,25 @@
       if (e.target.classList && e.target.classList.contains("sn-color-input")) {
         setColor(e.target.dataset.id, e.target.value, true);
       }
+      if (e.target.dataset && e.target.dataset.action === "set-opacity") {
+        setNoteOpacity(e.target.dataset.id, Number(e.target.value));
+      }
     });
-    // Cmd/Ctrl+Enter saves the note or reply being edited.
+    // Editor shortcuts: Cmd/Ctrl+Enter saves, Cmd/Ctrl+B/I format.
     chromeEl.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
       const ta = e.target.closest && e.target.closest(".sn-textarea");
-      if (!ta) return;
-      e.preventDefault();
-      saveEdit(ta.dataset.id);
-      render();
+      if (!ta || !(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveEdit(ta.dataset.id);
+        render();
+      } else if (e.key === "b" || e.key === "B") {
+        e.preventDefault();
+        applyFormat(ta.dataset.id, "bold");
+      } else if (e.key === "i" || e.key === "I") {
+        e.preventDefault();
+        applyFormat(ta.dataset.id, "italic");
+      }
     });
     chromeEl.addEventListener("change", (e) => {
       if (e.target.classList && e.target.classList.contains("sn-color-input")) {
@@ -1252,7 +1267,11 @@
     const custom =
       `<button class="sn-swatch sn-swatch-custom${preset ? "" : " sel"}" title="Custom colour" data-action="custom-color" data-id="${esc(c.id)}"></button>` +
       `<input class="sn-color-input" type="color" value="${esc(current)}" data-id="${esc(c.id)}" aria-hidden="true" tabindex="-1" />`;
-    return `<div class="sn-palette">${swatches}${custom}</div>`;
+    const op = c.opacity != null ? c.opacity : settings.highlightOpacity;
+    const opacityRow = `<label class="sn-op" title="Highlight opacity">
+        <input type="range" min="0.1" max="1" step="0.05" value="${op}" data-action="set-opacity" data-id="${esc(c.id)}" />
+      </label>`;
+    return `<div class="sn-palette">${swatches}${custom}${opacityRow}</div>`;
   }
 
   // The head of a card: a quote for text notes, a typed descriptor for element
@@ -1286,11 +1305,14 @@
 
     const head = anchorHeadHtml(c);
 
-    // Editing the root note (also the state for a brand-new draft).
+    // Editing the root note (also the state for a brand-new draft). The colour
+    // row is shown inline so colour/opacity can be set as the note is created,
+    // not only afterwards from the swatch button.
     if (editingRoot) {
       return `<article class="${classes.join(" ")}" data-id="${esc(c.id)}">
           ${head}
           ${editorHtml(c.id, c.body, "Add your note…", "note")}
+          ${paletteHtml(c)}
         </article>`;
     }
 
@@ -1852,6 +1874,22 @@
     });
   }
 
+  // Per-note highlight opacity (blank = follow the global setting).
+  function setNoteOpacity(commentId, value) {
+    const v = Math.min(1, Math.max(0.1, Number(value)));
+    if (!Number.isFinite(v)) return;
+    const c = comments.find((x) => x.id === commentId) || (draft && draft.id === commentId ? draft : null);
+    if (!c) return;
+    c.opacity = v;
+    // Repaint highlights without rebuilding the panel (the slider keeps focus).
+    reanchorOnly();
+    if (draft && draft.id === commentId) return;
+    mutatePage((e) => {
+      const t = (e.comments || []).find((x) => x.id === commentId);
+      if (t) t.opacity = v;
+    });
+  }
+
   function cancelEdit() {
     if (draft && draft.id === editingId) draft = null;
     if (replyDraft && replyDraft.reply.id === editingId) replyDraft = null;
@@ -2283,6 +2321,17 @@
     }, 2600);
   }
 
+  // The extension was reloaded/updated while this page stayed open, so this
+  // content script is orphaned. Say so once and stop touching chrome.* rather
+  // than throwing "Extension context invalidated" on every interaction.
+  let extensionGone = false;
+  function handleExtensionGone() {
+    if (extensionGone) return;
+    extensionGone = true;
+    stopDomObserver();
+    if (shadow) showToast("SideNote was updated — reload this page to keep taking notes.");
+  }
+
   /* ------------------------------------------------------ Mount cycle */
   // Open a side automatically when it already has unresolved notes.
   function autoOpenSidesWithNotes() {
@@ -2389,8 +2438,10 @@
   }
 
   async function reload() {
+    if (!extensionAlive()) return handleExtensionGone();
     settings = await getSettings();
     const pages = await getPages();
+    if (!pages) return handleExtensionGone(); // keep what's on screen
     entry = pages[PAGE_KEY] || null;
     comments = entry ? entry.comments.slice() : [];
     // Drop a stale editing id (unless it points at a live draft/reply/note).
@@ -2549,6 +2600,15 @@
         else if (drawTool) setTool(null);
         else if (paletteOpen) closePalette();
         else if (selectedNoteId) selectShape(null);
+        return;
+      }
+
+      // Cmd/Ctrl+Enter saves the open note even when focus is still on the
+      // page (e.g. straight after drawing, where we deliberately don't steal it).
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && editingId && !isEditableFocused()) {
+        e.preventDefault();
+        saveEdit(editingId);
+        render();
         return;
       }
 
@@ -2863,6 +2923,8 @@
       background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0) 70%);
     }
     .sn-color-input { position: absolute; width: 0; height: 0; opacity: 0; border: none; padding: 0; }
+    .sn-op { display: flex; align-items: center; margin-left: 4px; }
+    .sn-op input { width: 68px; accent-color: var(--accent); }
 
     /* Formatting toolbar above a note's editor */
     .sn-fmt-bar { display: flex; gap: 4px; margin-bottom: 6px; }

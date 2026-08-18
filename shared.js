@@ -214,6 +214,10 @@ function normalizeComment(raw) {
     body: String(raw.body || ""),
     side: raw.side === "left" ? "left" : "right",
     color: /^#([A-Fa-f0-9]{6})$/.test(String(raw.color || "")) ? raw.color : undefined,
+    // Per-note highlight opacity; falls back to the global setting when unset.
+    opacity: Number.isFinite(Number(raw.opacity))
+      ? Math.min(1, Math.max(0.1, Number(raw.opacity)))
+      : undefined,
     resolved: Boolean(raw.resolved),
     createdAt: Number(raw.createdAt) || Date.now(),
     updatedAt: Number(raw.updatedAt) || Number(raw.createdAt) || Date.now(),
@@ -289,27 +293,69 @@ function unresolvedCount(entry) {
 }
 
 /* ---------------------------------------------------------- Storage IO */
+// A content script keeps running after the extension is reloaded/updated, but
+// loses access to chrome.* ("Extension context invalidated"). Detect that so
+// callers degrade quietly instead of throwing uncaught promise errors.
+function extensionAlive() {
+  try {
+    return Boolean(chrome && chrome.runtime && chrome.runtime.id);
+  } catch (_) {
+    return false;
+  }
+}
 function getSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get([SETTINGS_KEY], (items) => resolve(normalizeSettings(items[SETTINGS_KEY])));
+    if (!extensionAlive()) return resolve(normalizeSettings(null));
+    try {
+      chrome.storage.sync.get([SETTINGS_KEY], (items) => {
+        void chrome.runtime.lastError;
+        resolve(normalizeSettings(items && items[SETTINGS_KEY]));
+      });
+    } catch (_) {
+      resolve(normalizeSettings(null));
+    }
   });
 }
 
 function setSettings(settings) {
   return new Promise((resolve) => {
-    chrome.storage.sync.set({ [SETTINGS_KEY]: normalizeSettings(settings) }, resolve);
+    if (!extensionAlive()) return resolve(false);
+    try {
+      chrome.storage.sync.set({ [SETTINGS_KEY]: normalizeSettings(settings) }, () => {
+        void chrome.runtime.lastError;
+        resolve(true);
+      });
+    } catch (_) {
+      resolve(false);
+    }
   });
 }
 
 function getPages() {
   return new Promise((resolve) => {
-    chrome.storage.local.get([PAGES_KEY], (items) => resolve(normalizePages(items[PAGES_KEY])));
+    if (!extensionAlive()) return resolve(null); // null = "couldn't read"
+    try {
+      chrome.storage.local.get([PAGES_KEY], (items) => {
+        void chrome.runtime.lastError;
+        resolve(normalizePages(items && items[PAGES_KEY]));
+      });
+    } catch (_) {
+      resolve(null);
+    }
   });
 }
 
 function setPages(pages) {
   return new Promise((resolve) => {
-    chrome.storage.local.set({ [PAGES_KEY]: pages }, resolve);
+    if (!extensionAlive()) return resolve(false);
+    try {
+      chrome.storage.local.set({ [PAGES_KEY]: pages }, () => {
+        void chrome.runtime.lastError;
+        resolve(true);
+      });
+    } catch (_) {
+      resolve(false);
+    }
   });
 }
 
