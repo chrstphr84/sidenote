@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.28.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "Drawings weren't being saved when “Require saving notes” was turned on: each finished drawing became a draft with no Save button to click, so the next drawing silently replaced it. A completed drawing now always saves, and that setting applies only to notes that open an editor.",
+          "Added a safeguard so a note can never again be left in a state where there's no way to save it."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.27.0",
     "sections": [
       {

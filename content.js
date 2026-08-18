@@ -1540,6 +1540,18 @@
 
   function render() {
     if (!shadow) return;
+    // Guard: an unsavable draft (no editor open ⇒ no Save button) would be lost
+    // by the next note. Commit it rather than leaving it stranded.
+    if (draft && !editingId) {
+      const stranded = draft;
+      draft = null;
+      comments.push(stranded);
+      pushUndo({ kind: "add", id: stranded.id });
+      mutatePage((e) => {
+        e.enabled = true;
+        e.comments = (e.comments || []).filter((c) => c.id !== stranded.id).concat([stranded]);
+      });
+    }
     hostEl.dataset.theme = currentTheme();
     // Preserve in-progress edit text across the full rebuild below (a data
     // change or re-anchor shouldn't wipe what the user is typing).
@@ -2427,7 +2439,11 @@
     focusPending = o.edit !== false && o.keepFocus !== false;
     colorPickerId = null;
     open[panelSideFor(note)] = true;
-    if (settings.requireExplicitSave) {
+    // A finished drawing is already a deliberate act, so it always persists.
+    // "Require saving notes" only governs notes that open an editor — otherwise
+    // (edit:false) the note would become a draft with no Save button to click,
+    // and the next drawing would silently replace it.
+    if (settings.requireExplicitSave && o.edit !== false) {
       // Provisional until Saved.
       draft = note;
       render();

@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.28.0]
+
+### Fixed
+- Drawings weren't being saved when “Require saving notes” was turned on: each finished drawing became a draft with no Save button to click, so the next drawing silently replaced it. A completed drawing now always saves, and that setting applies only to notes that open an editor.
+- Added a safeguard so a note can never again be left in a state where there's no way to save it.
+
 ## [0.27.0]
 
 ### Fixed
@@ -258,6 +264,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.28.0]: #0280
 [0.27.0]: #0270
 [0.26.0]: #0260
 [0.25.0]: #0250

@@ -271,7 +271,27 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
 
-## Open: "drawing does not save / first note disappears" (as of v0.27.0)
+## RESOLVED: "drawing does not save / first note disappears" (v0.28.0)
+
+Root cause, from the ⚑ diagnostics: **`requireExplicitSave: true`**. v0.25.0 made a
+finished drawing skip opening an editor (`edit:false`) so a saved note wouldn't look
+pending — but combined with that setting, `createNote` routed the drawing into
+`draft`, i.e. a provisional note whose only commit path is the editor's Save button,
+which was never shown. So the drawing was never stored (`commentsInMemory: 0`,
+`hasDraft: true`, `editingId: null`) and the next drawing replaced the single draft
+slot — "the first drawing and comment box disappears". The card also had no controls
+because *draft* cards deliberately render without tools (not the markup bug).
+
+Fix: a completed drawing always persists; `requireExplicitSave` now governs only
+notes that open an editor. Plus a `render()` guard that commits any draft with no
+open editor, so an unsavable state can't recur by another route.
+
+Why every earlier reproduction failed: all my harnesses used the DEFAULT settings
+(`requireExplicitSave: false`), where drawings persist immediately. **Lesson: seed
+harnesses with the reporter's actual settings — the ⚑ dump found in one step what
+five rounds of guessing did not.**
+
+## Previously open, now fixed (v0.27.0)
 
 Confirmed and fixed in v0.27.0 from the same report:
 - `gotoHighlight()` always toasted "target wasn't found" for a drawing, because a
