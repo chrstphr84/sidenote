@@ -442,6 +442,26 @@
     return shadow ? shadow.getElementById("sn-doc-overlay") : null;
   }
 
+  // The document layer must actually span the page: an <svg> sized 0x0 clips its
+  // children in Chrome even with overflow:visible, so page-coordinate shapes
+  // were never painted. Match the scroll size (never larger, so we can't extend
+  // the page's own scroll extent).
+  function sizeDocOverlay() {
+    const doc = docOverlayEl();
+    if (!doc) return;
+    const de = document.documentElement;
+    const w = Math.max(de.scrollWidth, de.clientWidth);
+    const h = Math.max(de.scrollHeight, de.clientHeight);
+    if (doc.__w !== w) {
+      doc.setAttribute("width", w);
+      doc.__w = w;
+    }
+    if (doc.__h !== h) {
+      doc.setAttribute("height", h);
+      doc.__h = h;
+    }
+  }
+
   // Fixed/sticky ancestors move with the viewport, so those anchors can't use
   // scroll-invariant page coordinates.
   function isViewportFixed(el) {
@@ -473,6 +493,7 @@
     const fx = overlayEl();
     const doc = docOverlayEl();
     if (!fx || !doc) return;
+    sizeDocOverlay();
     // Preserve the in-flight preview, which lives on the fixed layer.
     const preview = Array.from(fx.querySelectorAll('[data-sidenote-id="__preview__"]'));
     fx.innerHTML = "";
@@ -743,9 +764,10 @@
     }
 
     const anchor = finalizeDrawing(d);
-    // Keep the tool armed so several shapes can be drawn in succession; the note
-    // is already saved, and text can be added at any time.
-    createNote(anchor, { keepFocus: false });
+    // Keep the tool armed so several shapes can be drawn in succession, and do
+    // NOT open the editor: the note is already saved, and showing an editor made
+    // it look like it still needed saving.
+    createNote(anchor, { keepFocus: false, edit: false });
   }
 
   function finalizeDrawing(d) {
@@ -2261,9 +2283,10 @@
       updatedAt: Date.now(),
       replies: []
     };
-    editingId = note.id;
+    // o.edit === false: save silently (drawings), leaving no open editor.
+    editingId = o.edit === false ? null : note.id;
     // Drawing in succession shouldn't yank focus into the editor each time.
-    focusPending = o.keepFocus !== false;
+    focusPending = o.edit !== false && o.keepFocus !== false;
     colorPickerId = null;
     open[panelSideFor(note)] = true;
     if (settings.requireExplicitSave) {
@@ -2679,6 +2702,10 @@
   /* ---------------------------------------------- Shadow-root styles */
   const SIDEBAR_CSS = `
     :host { all: initial; }
+    /* Must come before any rule that sets a display value: an author display
+       declaration otherwise overrides the UA's [hidden] rule, which left
+       elements (notably the palette) visible after being hidden in code. */
+    [hidden] { display: none !important; }
     * { box-sizing: border-box; font-family: "Roboto","Segoe UI",system-ui,-apple-system,Arial,sans-serif; }
     :host {
       --bg:#f8f9fa; --surface:#ffffff; --surface-2:#f1f3f4; --text:#202124;
@@ -2808,7 +2835,7 @@
        and overflow visible, so it can paint anywhere on the page without
        affecting layout or the scroll extent — and scrolls natively with it. */
     .sn-doc-overlay {
-      position: absolute; top: 0; left: 0; width: 0; height: 0;
+      position: absolute; top: 0; left: 0;
       overflow: visible; pointer-events: none; z-index: 2147483645;
     }
     .sn-overlay .sn-ov-pin, .sn-overlay .sn-ov-outline, .sn-overlay .sn-ov-shape,

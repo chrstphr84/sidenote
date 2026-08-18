@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.25.0]
+
+### Fixed
+- The drawing palette now actually disappears when you press Done. It was being hidden in code but stayed painted on screen — visible, unresponsive, still showing tooltips.
+- Drawings are visible again after you finish them. The layer they're drawn on had no size, so Chrome clipped everything away.
+- Finishing a drawing saves it outright and no longer opens an empty editor, which made a saved note look like it still needed saving. Add text later with the pencil; the tool stays selected so you can keep drawing.
+
 ## [0.24.0]
 
 ### Fixed
@@ -235,6 +242,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.25.0]: #0250
 [0.24.0]: #0240
 [0.23.0]: #0230
 [0.22.0]: #0220

@@ -271,6 +271,31 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
 
+## Resolved from the 2026-08-18 report, part 2 (v0.25.0)
+
+Two more real bugs — and both were invisible to the tests I had:
+
+1. **Palette stayed painted after Done.** The shadow CSS sets
+   `.sn-palette-bar { display: flex }`, and an **author** `display` declaration
+   overrides the UA's `[hidden] { display: none }`. So `el.hidden = true` set the
+   attribute (my assertions passed!) while the bar kept rendering — visible,
+   inert, tooltips still firing, exactly as reported. Fixed with an explicit
+   `[hidden] { display: none !important; }` at the top of the shadow stylesheet,
+   which now covers every element. Confirmed against a pre-fix copy: `hidden=true`
+   but `display:flex` and a painted 460×44 box.
+2. **Drawings clipped away.** `#sn-doc-overlay` was `width:0; height:0` relying on
+   `overflow: visible`; Chrome still clips an outer `<svg>` sized 0×0, so
+   page-coordinate shapes were painted nowhere. The layer is now sized to the
+   document scroll size (never larger, so it can't extend the page).
+3. **"Drawings don't save"** was a UX signal, not a data bug: finishing a drawing
+   opened an empty editor, so a saved note looked pending. Drawings now save
+   silently (`createNote(..., { edit: false })`); text can be added later.
+
+**Testing rule learned (the important part):** asserting `.hidden`, computed state,
+or node presence is NOT sufficient — all three of these passed while the product was
+visibly broken. Drawing/palette changes must be verified against **rendered pixels**
+(screenshot + colour sampling) with **real mouse input** on a **self-mutating page**.
+
 ## Resolved from the 2026-08-18 report (v0.24.0)
 
 Root cause found: **drawings were anchored to the element under their first pixel**.
