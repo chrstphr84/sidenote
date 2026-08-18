@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.27.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "Clicking a drawing's note no longer reports “This note's target wasn't found on the page.” Drawings sit at a position on the page rather than on an element, so the note now scrolls to the drawing itself.",
+          "A drawing note's heading showed a truncated “Drawing on” and could hide the note's own buttons — the element name was being inserted as markup instead of text.",
+          "A drawing only follows an element when that element is matched exactly, so it can't jump to an unrelated part of the page."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.26.0",
     "sections": [
       {

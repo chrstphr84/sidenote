@@ -271,7 +271,28 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
 
-## Open: "drawing does not save" (as of v0.26.0)
+## Open: "drawing does not save / first note disappears" (as of v0.27.0)
+
+Confirmed and fixed in v0.27.0 from the same report:
+- `gotoHighlight()` always toasted "target wasn't found" for a drawing, because a
+  page-anchored region has no element to find. It now scrolls to the shape's own
+  page coordinates. (Certain — this is the toast in the screenshot.)
+- `anchorHeadHtml()` interpolated the tag inside literal angle brackets
+  (`on <${tag}>`), so the tag was parsed as an ELEMENT and injected into the card
+  head. Verified: a stray `<div>` inside `.sn-target` before the fix, none after.
+  Because `.sn-target` is `overflow:hidden; white-space:nowrap`, anything the
+  parser nested there is clipped — the likely cause of "no option to save this
+  comment" (the card's controls were invisible).
+- Dual anchoring now only trusts an **exact** selector match (`findElementExact`),
+  so a fuzzy match can't relocate a drawing to an unrelated element — a plausible
+  cause of a drawing appearing to vanish.
+
+STILL not reproduced: a second drawing making the first note disappear. In a
+self-mutating-page harness with real mouse input, two successive drawings give 2
+notes in storage, 2 sibling cards, 6 painted shape nodes and full controls on both.
+Next input needed: the ⚑ diagnostics from a failing page.
+
+## Previously open (v0.26.0)
 
 **Still not reproduced.** Attempted with real mouse input, panel open AND closed,
 palette opened from the popup, on a self-mutating page, verified against rendered

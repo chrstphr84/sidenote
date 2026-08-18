@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.27.0]
+
+### Fixed
+- Clicking a drawing's note no longer reports “This note's target wasn't found on the page.” Drawings sit at a position on the page rather than on an element, so the note now scrolls to the drawing itself.
+- A drawing note's heading showed a truncated “Drawing on” and could hide the note's own buttons — the element name was being inserted as markup instead of text.
+- A drawing only follows an element when that element is matched exactly, so it can't jump to an unrelated part of the page.
+
 ## [0.26.0]
 
 ### Changed
@@ -251,6 +258,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.27.0]: #0270
 [0.26.0]: #0260
 [0.25.0]: #0250
 [0.24.0]: #0240

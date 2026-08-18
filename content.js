@@ -388,6 +388,19 @@
     };
   }
 
+  // Exact structural match only (no fuzzy scoring) — used where guessing wrong
+  // would silently move an annotation.
+  function findElementExact(target) {
+    if (!target || !target.selector) return null;
+    try {
+      const el = document.querySelector(target.selector);
+      if (el && !(el.closest && el.closest(`#${HOST_ID}`))) return el;
+    } catch (_) {
+      /* invalid selector */
+    }
+    return null;
+  }
+
   // Re-find a linked element: exact structural selector first, then a scored
   // fuzzy fallback for pages that reflowed.
   function findElement(target) {
@@ -847,8 +860,9 @@
           // Fall back to page coordinates when the anchor element can't be
           // re-found, rather than dropping the drawing entirely.
           // A page-anchored drawing may still carry an element hint (dual
-          // anchoring); resolve it so the drawing can follow reflow.
-          const el = a.target && a.target.selector ? findElement(a.target) : null;
+          // anchoring). Use it only on an exact selector match: a fuzzy match
+          // could be a different element and would relocate the drawing.
+          const el = a.target && a.target.selector ? findElementExact(a.target) : null;
           overlayItems.push({ comment: c, el, anchor: a, index: i });
           placed += 1;
         }
@@ -1345,7 +1359,7 @@
       const name = t.attrHint || t.textHint || (t.tag ? `<${t.tag}>` : "element");
       label = `⬚ ${esc(name.length > 90 ? name.slice(0, 90) + "…" : name)}`;
     } else {
-      label = `✎ Drawing${t.tag ? ` on <${esc(t.tag)}>` : ""}`;
+      label = `✎ Drawing${t.tag ? ` on ${esc("<" + t.tag + ">")}` : ""}`;
     }
     return `<div class="sn-target" data-action="goto" data-id="${esc(c.id)}">${label}</div>`;
   }
@@ -1759,11 +1773,18 @@
       spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
     } else if (c && (primaryAnchor(c) || {}).type !== "text") {
       const pa = primaryAnchor(c) || {};
-      const el = pa.type === "element" || pa.relativeTo === "element" ? findElement(pa.target) : null;
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      else {
-        showToast("This note's target wasn't found on the page.");
-        return;
+      const el = pa.target && pa.target.selector ? findElement(pa.target) : null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      } else {
+        // Drawings live at page coordinates and need no element — scroll to the
+        // shape itself rather than claiming the target is missing.
+        const pt = firstShapePoint(c);
+        if (pt) window.scrollTo({ top: Math.max(0, pt.y - window.innerHeight / 2), behavior: "smooth" });
+        else {
+          showToast("This note's target wasn't found on the page.");
+          return;
+        }
       }
       setTimeout(scheduleOverlayRedraw, 350);
     } else {
@@ -1771,6 +1792,17 @@
       return;
     }
     flashTargets(id);
+  }
+
+  // First page-coordinate point of a note's drawings, if it has any.
+  function firstShapePoint(c) {
+    for (const a of c.anchors || []) {
+      if (a.type !== "region") continue;
+      const shape = (a.shapes || [])[0];
+      const p = shape && shape.points && shape.points[0];
+      if (p) return p;
+    }
+    return null;
   }
 
   function flashTargets(id) {

@@ -5,7 +5,7 @@ a margin beside the page — like comments in Google Docs. It's built for the
 "I have this tab open because I need to remember something about it" problem:
 mark the exact spot, write why it matters, and come back to it later.
 
-This is an early **proof of concept** (v0.26.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
+This is an early **proof of concept** (v0.27.0). See [ROADMAP.md](ROADMAP.md) for what's planned and how it's sequenced.
 
 ## Features
 
