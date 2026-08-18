@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.24.0]
+
+### Fixed
+- Drawings no longer disappear the moment you finish them. Each drawing was being attached to whichever element sat under its first pixel, and on pages that constantly update themselves (news sites, feeds, anything with ads) that attachment went stale within milliseconds — so the drawing was immediately reported as “not found on page”. Drawings are now placed on the page itself.
+- The note count at the top of the sidebar is accurate again — it was including notes that had been orphaned and hidden.
+- The drawing palette dismisses reliably with Done.
+- SideNote no longer re-scans the page endlessly when a note can’t be placed, which made everything feel sluggish on busy pages.
+- A note whose element genuinely can’t be found keeps its drawing visible instead of vanishing.
+- The rainbow swatch now opens the browser’s colour picker.
+
 ## [0.23.0]
 
 ### Fixed
@@ -225,6 +235,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.24.0]: #0240
 [0.23.0]: #0230
 [0.22.0]: #0220
 [0.21.0]: #0210

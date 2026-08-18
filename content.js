@@ -698,22 +698,6 @@
     else setTool(tool);
   }
 
-  // Which element a page-point should anchor to (null → anchor to the page).
-  function elementUnderForDrawing(x, y) {
-    const capture = shadow && shadow.getElementById("sn-draw-capture");
-    if (capture) capture.style.pointerEvents = "none";
-    let el = null;
-    try {
-      el = document.elementFromPoint(x, y);
-    } catch (_) {
-      el = null;
-    }
-    if (capture) capture.style.pointerEvents = "";
-    if (!el || el === document.body || el === document.documentElement) return null;
-    if (el.id === HOST_ID || (el.closest && el.closest(`#${HOST_ID}`))) return null;
-    return el;
-  }
-
   function clearPreview() {
     const svg = overlayEl();
     if (svg) svg.querySelectorAll('[data-sidenote-id="__preview__"]').forEach((n) => n.remove());
@@ -765,14 +749,10 @@
   }
 
   function finalizeDrawing(d) {
-    const start = d.points[0];
-    const el = elementUnderForDrawing(start.x, start.y);
     const shape = { kind: d.kind, color: drawColor(), width: 3 };
-    if (el) {
-      const r = el.getBoundingClientRect();
-      shape.points = d.points.map((p) => ({ x: Math.round(p.x - r.left), y: Math.round(p.y - r.top) }));
-      return { type: "region", relativeTo: "element", target: buildTarget(el), shapes: [shape] };
-    }
+    // Always page-anchored: element paths on dynamic pages (NYT, feeds, ads)
+    // go stale within milliseconds, which orphaned the note and made the
+    // drawing disappear the instant it was created.
     shape.points = d.points.map((p) => ({ x: Math.round(p.x + window.scrollX), y: Math.round(p.y + window.scrollY) }));
     return { type: "region", relativeTo: "page", target: {}, shapes: [shape] };
   }
@@ -799,8 +779,9 @@
             placed += 1;
           }
         } else if (type === "region") {
+          // Fall back to page coordinates when the anchor element can't be
+          // re-found, rather than dropping the drawing entirely.
           const el = a.relativeTo === "element" ? findElement(a.target) : null;
-          if (a.relativeTo === "element" && !el) return;
           overlayItems.push({ comment: c, el, anchor: a, index: i });
           placed += 1;
         }
@@ -1265,8 +1246,10 @@
     // Custom colour: same round shape, filled with the classic rainbow wheel,
     // opening the native picker.
     const custom =
-      `<button class="sn-swatch sn-swatch-custom${preset ? "" : " sel"}" title="Custom colour" data-action="custom-color" data-id="${esc(c.id)}"></button>` +
-      `<input class="sn-color-input" type="color" value="${esc(current)}" data-id="${esc(c.id)}" aria-hidden="true" tabindex="-1" />`;
+      `<span class="sn-swatch-wrap">
+         <span class="sn-swatch sn-swatch-custom${preset ? "" : " sel"}" title="Custom colour"></span>
+         <input class="sn-color-input" type="color" value="${esc(current)}" data-id="${esc(c.id)}" title="Custom colour" />
+       </span>`;
     const op = c.opacity != null ? c.opacity : settings.highlightOpacity;
     const opacityRow = `<label class="sn-op" title="Highlight opacity">
         <input type="range" min="0.1" max="1" step="0.05" value="${op}" data-action="set-opacity" data-id="${esc(c.id)}" />
@@ -1658,12 +1641,6 @@
       case "next-linked":
         gotoNextLinked(id);
         break;
-      case "custom-color": {
-        // Open the browser's own colour picker via the paired hidden input.
-        const input = shadow.querySelector(`.sn-color-input[data-id="${cssEscape(id)}"]`);
-        if (input) input.click();
-        break;
-      }
       case "resolve":
         toggleResolve(id);
         break;
@@ -2348,6 +2325,12 @@
   let domObserver = null;
   let lastOrphanCount = 0;
   let reanchorTimer = null;
+  // How many mutation-driven re-anchor attempts remain; refilled whenever the
+  // notes or the page actually change (see refillReanchorBudget).
+  let reanchorBudget = 20;
+  function refillReanchorBudget() {
+    reanchorBudget = 20;
+  }
 
   function scheduleReanchor() {
     clearTimeout(reanchorTimer);
@@ -2372,7 +2355,12 @@
   function startDomObserver() {
     if (domObserver || !document.body) return;
     domObserver = new MutationObserver(() => {
-      if (lastOrphanCount > 0) scheduleReanchor();
+      // Budgeted: a permanently-orphaned note on a constantly-mutating page
+      // would otherwise re-anchor forever and starve the UI.
+      if (lastOrphanCount > 0 && reanchorBudget > 0) {
+        reanchorBudget -= 1;
+        scheduleReanchor();
+      }
     });
     domObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
   }
@@ -2445,6 +2433,7 @@
     entry = pages[PAGE_KEY] || null;
     comments = entry ? entry.comments.slice() : [];
     // Drop a stale editing id (unless it points at a live draft/reply/note).
+    refillReanchorBudget();
     if (editingId && !editIdStillValid()) editingId = null;
     if (colorPickerId && !comments.some((c) => c.id === colorPickerId)) colorPickerId = null;
     applyState();
@@ -2922,7 +2911,14 @@
       content: ""; position: absolute; inset: 4px; border-radius: 50%;
       background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0) 70%);
     }
-    .sn-color-input { position: absolute; width: 0; height: 0; opacity: 0; border: none; padding: 0; }
+    /* The real colour input sits invisibly ON the rainbow swatch, so clicking
+       the swatch is a click on the input and Chrome opens its native picker. */
+    .sn-swatch-wrap { position: relative; display: inline-flex; width: 18px; height: 18px; }
+    .sn-swatch-wrap .sn-swatch-custom { position: absolute; inset: 0; pointer-events: none; }
+    .sn-color-input {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      opacity: 0; border: none; padding: 0; margin: 0; cursor: pointer; background: none;
+    }
     .sn-op { display: flex; align-items: center; margin-left: 4px; }
     .sn-op input { width: 68px; accent-color: var(--accent); }
 

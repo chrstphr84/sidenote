@@ -271,7 +271,28 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
 
-## Open from the 2026-08-18 report
+## Resolved from the 2026-08-18 report (v0.24.0)
+
+Root cause found: **drawings were anchored to the element under their first pixel**.
+`cssPathOf` produces a structural `:nth-of-type()` path; on pages that inject/remove
+nodes constantly (NYT, feeds, ads) that path goes stale within milliseconds, and the
+fuzzy fallback can't rescue an anonymous `<div>` (score < 3). The note was therefore
+orphaned the instant it was created → the drawing vanished on mouse-up, the header
+count included hidden orphans, and the orphan-driven MutationObserver then re-anchored
+**forever** on a mutating page, starving the UI (which is why the palette felt dead).
+
+Fixes: drawings are now **page-anchored** (they never need an element, and the v0.19
+document-coordinate layer already makes page coords scroll natively); a region whose
+element is missing **falls back to page coords instead of orphaning**; the re-anchor
+observer now has a **budget** instead of retrying indefinitely; and the rainbow swatch
+hosts a real (transparent, full-size) `<input type="color">` so Chrome actually opens
+its native picker.
+
+Testing lesson: synthetic `MouseEvent` dispatch on a trivial DOM passed while the real
+thing failed. These were reproduced only with **real Playwright mouse input on a
+self-mutating page** — that combination is now the bar for drawing/palette changes.
+
+## Previously open from the 2026-08-18 report
 
 - **Drawings vanish on mouse-up / palette "Done" does nothing** — could NOT be reproduced
   in a clean context (both pass). Strongly correlated with the "Extension context

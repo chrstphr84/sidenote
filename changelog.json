@@ -1,5 +1,21 @@
 [
   {
+    "version": "0.24.0",
+    "sections": [
+      {
+        "label": "Fixed",
+        "items": [
+          "Drawings no longer disappear the moment you finish them. Each drawing was being attached to whichever element sat under its first pixel, and on pages that constantly update themselves (news sites, feeds, anything with ads) that attachment went stale within milliseconds — so the drawing was immediately reported as “not found on page”. Drawings are now placed on the page itself.",
+          "The note count at the top of the sidebar is accurate again — it was including notes that had been orphaned and hidden.",
+          "The drawing palette dismisses reliably with Done.",
+          "SideNote no longer re-scans the page endlessly when a note can’t be placed, which made everything feel sluggish on busy pages.",
+          "A note whose element genuinely can’t be found keeps its drawing visible instead of vanishing.",
+          "The rainbow swatch now opens the browser’s colour picker."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.23.0",
     "sections": [
       {
