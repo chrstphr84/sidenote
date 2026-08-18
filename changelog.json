@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.26.0",
+    "sections": [
+      {
+        "label": "Changed",
+        "items": [
+          "Closing the sidebar now also puts the drawing palette away.",
+          "Drawings follow the page when it reflows — for example when the sidebar slides open and pushes the content across. Each drawing remembers the element it was drawn over and falls back to its position on the page if that element can't be found, so it still can't disappear."
+        ]
+      },
+      {
+        "label": "Added",
+        "items": [
+          "A ⚑ button at the bottom of the sidebar copies diagnostic information to the clipboard, to make reporting a misbehaving page easier."
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.25.0",
     "sections": [
       {

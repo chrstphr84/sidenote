@@ -191,6 +191,12 @@ function normalizeAnchor(raw) {
   if (type === "region") {
     out.relativeTo = a.relativeTo === "page" ? "page" : "element";
     out.shapes = Array.isArray(a.shapes) ? a.shapes.map(normalizeShape).filter(Boolean) : [];
+    // Dual anchoring: elShapes are the same shapes expressed relative to
+    // `target`. When the element can be re-found the drawing follows it (so it
+    // moves with reflow); otherwise the page-coordinate `shapes` keep it visible.
+    if (Array.isArray(a.elShapes)) {
+      out.elShapes = a.elShapes.map(normalizeShape).filter(Boolean);
+    }
   }
   return out;
 }

@@ -530,10 +530,13 @@
           })
         );
       } else if (anchor.type === "region") {
-        const origin = el
-          ? { left: el.getBoundingClientRect().left + ox, top: el.getBoundingClientRect().top + oy }
-          : { left: 0, top: 0 }; // page coords, drawn straight onto the doc layer
-        (anchor.shapes || []).forEach((shape) => drawShape(svg, comment, shape, origin, index));
+        // Element-relative when we could re-find the element (follows reflow),
+        // page coordinates otherwise (always resolves).
+        const useEl = el && Array.isArray(anchor.elShapes) && anchor.elShapes.length;
+        const shapes = useEl ? anchor.elShapes : anchor.shapes || [];
+        const r = el ? el.getBoundingClientRect() : null;
+        const origin = useEl ? { left: r.left + ox, top: r.top + oy } : { left: 0, top: 0 };
+        shapes.forEach((shape) => drawShape(svg, comment, shape, origin, index));
       }
     });
 
@@ -771,12 +774,52 @@
   }
 
   function finalizeDrawing(d) {
-    const shape = { kind: d.kind, color: drawColor(), width: 3 };
-    // Always page-anchored: element paths on dynamic pages (NYT, feeds, ads)
-    // go stale within milliseconds, which orphaned the note and made the
-    // drawing disappear the instant it was created.
-    shape.points = d.points.map((p) => ({ x: Math.round(p.x + window.scrollX), y: Math.round(p.y + window.scrollY) }));
-    return { type: "region", relativeTo: "page", target: {}, shapes: [shape] };
+    const ink = drawColor();
+    // Page coordinates are the durable fallback — they always resolve, which is
+    // what stopped drawings vanishing on dynamic pages.
+    const pageShape = {
+      kind: d.kind,
+      color: ink,
+      width: 3,
+      points: d.points.map((p) => ({ x: Math.round(p.x + window.scrollX), y: Math.round(p.y + window.scrollY) }))
+    };
+    const anchor = { type: "region", relativeTo: "page", target: {}, shapes: [pageShape] };
+
+    // Additionally record the drawing relative to the element under its start
+    // point. When that element can be re-found we prefer it, so the drawing
+    // travels with the content as the page reflows (e.g. when the sidebar
+    // pushes the page). If it can't be found we fall back to page coords.
+    const el = elementUnderPoint(d.points[0].x, d.points[0].y);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      anchor.target = buildTarget(el);
+      anchor.elShapes = [
+        {
+          kind: d.kind,
+          color: ink,
+          width: 3,
+          points: d.points.map((p) => ({ x: Math.round(p.x - r.left), y: Math.round(p.y - r.top) }))
+        }
+      ];
+    }
+    return anchor;
+  }
+
+  // Topmost page element at a viewport point, ignoring our own UI.
+  function elementUnderPoint(x, y) {
+    const cap = shadow && shadow.getElementById("sn-draw-capture");
+    const prev = cap ? cap.style.pointerEvents : null;
+    if (cap) cap.style.pointerEvents = "none";
+    let el = null;
+    try {
+      el = document.elementFromPoint(x, y);
+    } catch (_) {
+      el = null;
+    }
+    if (cap) cap.style.pointerEvents = prev || "";
+    if (!el || el === document.body || el === document.documentElement) return null;
+    if (el.id === HOST_ID || (el.closest && el.closest(`#${HOST_ID}`))) return null;
+    return el;
   }
 
   /* ------------------------------------------------- Render dispatcher */
@@ -803,7 +846,9 @@
         } else if (type === "region") {
           // Fall back to page coordinates when the anchor element can't be
           // re-found, rather than dropping the drawing entirely.
-          const el = a.relativeTo === "element" ? findElement(a.target) : null;
+          // A page-anchored drawing may still carry an element hint (dual
+          // anchoring); resolve it so the drawing can follow reflow.
+          const el = a.target && a.target.selector ? findElement(a.target) : null;
           overlayItems.push({ comment: c, el, anchor: a, index: i });
           placed += 1;
         }
@@ -1090,7 +1135,14 @@
     else html.style.removeProperty("margin-left");
     if (right) html.style.setProperty("margin-right", `${right}px`, "important");
     else html.style.removeProperty("margin-right");
+    // The page reflows over the transition, so re-place annotations once it has
+    // settled (otherwise drawings sit where the content used to be).
+    clearTimeout(pushSettleTimer);
+    pushSettleTimer = setTimeout(() => {
+      if (active) reanchorOnly();
+    }, 220);
   }
+  let pushSettleTimer = null;
 
   /* ------------------------------------------------- Top-bar interop */
   // Other extensions/pages can dock a fixed bar at the top of the page (e.g. our
@@ -1412,7 +1464,10 @@
         <div class="sn-cards${aligned ? " sn-cards-aligned" : ""}">${cards}</div>
         <footer class="sn-foot sn-foot-${side}">
           <button class="sn-link" data-action="settings">Settings</button>
-          <button class="sn-link sn-version" data-action="changelog" title="View the changelog">v${esc(EXT_VERSION)}</button>
+          <span class="sn-foot-right-group">
+            <button class="sn-link sn-version" data-action="debug" title="Copy diagnostic info">⚑</button>
+            <button class="sn-link sn-version" data-action="changelog" title="View the changelog">v${esc(EXT_VERSION)}</button>
+          </span>
         </footer>
       </aside>`;
   }
@@ -1603,7 +1658,9 @@
       case "close":
         open[side] = false;
         cancelEdit();
-        render();
+        // Drawing without a sidebar to put notes in is confusing: close both.
+        if (paletteOpen) closePalette();
+        else render();
         break;
       case "goto":
         gotoHighlight(id);
@@ -1649,6 +1706,9 @@
         break;
       case "format":
         applyFormat(id, el.dataset.fmt);
+        break;
+      case "debug":
+        copyDebugInfo();
         break;
       case "clear-multi":
         multiSelected.clear();
@@ -1936,6 +1996,52 @@
     mutatePage((e) => {
       e.comments = (e.comments || []).filter((c) => c.id !== id);
     });
+  }
+
+  // Dump the live state to the clipboard so a misbehaving page can be reported
+  // precisely instead of guessed at.
+  function copyDebugInfo() {
+    const info = {
+      version: EXT_VERSION,
+      url: location.href,
+      pageKey: PAGE_KEY,
+      active,
+      extensionGone,
+      settings,
+      openPanels: { ...open },
+      counts: {
+        commentsInMemory: comments.length,
+        overlayItems: overlayItems.length,
+        highlightSpans: document.querySelectorAll(".__sidenote_hl").length,
+        shapeNodes: shadow ? shadow.querySelectorAll(".sn-ov-shape").length : 0,
+        cardsRendered: shadow ? shadow.querySelectorAll(".sn-card").length : 0,
+        lastOrphanCount,
+        reanchorBudget
+      },
+      drawing: { paletteOpen, drawTool, editingId, hasDraft: Boolean(draft) },
+      notes: comments.map((c) => ({
+        id: c.id,
+        side: c.side,
+        body: (c.body || "").slice(0, 40),
+        anchors: (c.anchors || []).map((a) => ({
+          type: a.type,
+          relativeTo: a.relativeTo,
+          shapes: (a.shapes || []).length,
+          firstPoint: a.shapes && a.shapes[0] && a.shapes[0].points && a.shapes[0].points[0],
+          exact: a.exact ? a.exact.slice(0, 30) : undefined,
+          selector: a.target && a.target.selector
+        }))
+      }))
+    };
+    const text = JSON.stringify(info, null, 2);
+    navigator.clipboard
+      .writeText(text)
+      .then(() => showToast("Debug info copied to the clipboard."))
+      .catch(() => {
+        // Clipboard can be blocked; fall back to the console.
+        console.log("[SideNote debug]", text);
+        showToast("Debug info logged to the console.");
+      });
   }
 
   /* -------------------------------------------- Consolidate & link */
@@ -2968,6 +3074,7 @@
        the right bar (the version line takes the inner edge). */
     .sn-foot-left { flex-direction: row; }
     .sn-foot-right { flex-direction: row-reverse; }
+    .sn-foot-right-group { display: flex; align-items: center; gap: 8px; }
     .sn-version { color: var(--text-faint); font-size: 11px; }
     .sn-version:hover { color: var(--accent); }
     .sn-link {

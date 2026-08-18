@@ -271,6 +271,29 @@ of it. Do this whenever the margin's top edge needs to stop fighting a top bar.
 | Drawing palette polish (dismiss/undo/select-shape/top entry) | 5 | Done (v0.10.0) |
 | Error handling: page 404 | X-cutting | Done (v0.11.0: All-notes link check) |
 
+## Open: "drawing does not save" (as of v0.26.0)
+
+**Still not reproduced.** Attempted with real mouse input, panel open AND closed,
+palette opened from the popup, on a self-mutating page, verified against rendered
+pixels: the note saves, the card renders and is visible, and the pencil opens its
+editor every time. Since four rounds of guessing have not landed it, v0.26.0 adds a
+**⚑ button** in the sidebar footer that copies the live state (settings, counts,
+per-note anchors, palette/draw state, orphan count) to the clipboard. Next step is to
+read that from a failing page rather than theorise further.
+
+## Resolved from the 2026-08-18 report, part 3 (v0.26.0)
+
+- **Palette now closes with the sidebar** (explicit request).
+- **Drawings follow page reflow.** Pushing the page for the sidebar reflows content,
+  but page-coordinate drawings stayed put — "the page moves beneath them". Fixed with
+  **dual anchoring**: a drawing stores both element-relative shapes (`elShapes` +
+  `target`) and page-coordinate shapes. The element form is preferred when it
+  resolves, so the drawing travels with the content; page coords remain the fallback
+  so a stale element can never make it vanish (the v0.24.0 failure mode).
+  `applyPush()` also re-places annotations once the transition has settled.
+  Verified: a drawing kept the same 200px offset from its text after the sidebar
+  closed and the page reflowed.
+
 ## Resolved from the 2026-08-18 report, part 2 (v0.25.0)
 
 Two more real bugs — and both were invisible to the tests I had:

@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 project aims to follow [Semantic Versioning](https://semver.org/): a **minor**
 bump for a feature (or batch of features), a **patch** bump for tweaks and fixes.
 
+## [0.26.0]
+
+### Changed
+- Closing the sidebar now also puts the drawing palette away.
+- Drawings follow the page when it reflows — for example when the sidebar slides open and pushes the content across. Each drawing remembers the element it was drawn over and falls back to its position on the page if that element can't be found, so it still can't disappear.
+
+### Added
+- A ⚑ button at the bottom of the sidebar copies diagnostic information to the clipboard, to make reporting a misbehaving page easier.
+
 ## [0.25.0]
 
 ### Fixed
@@ -242,6 +251,7 @@ bump for a feature (or batch of features), a **patch** bump for tweaks and fixes
 - Settings page (opens in its own tab) with Light / Dark / Auto theme, default margin side, highlight color, and margin width, styled to match Colorbars.
 - In-extension Help and Changelog pages.
 
+[0.26.0]: #0260
 [0.25.0]: #0250
 [0.24.0]: #0240
 [0.23.0]: #0230
